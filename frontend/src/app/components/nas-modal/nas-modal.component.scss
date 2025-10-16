@@ -1,0 +1,40 @@
+.modal {
+  z-index: 1050;
+}
+
+.modal-backdrop {
+  z-index: 1040;
+}
+
+.modal.show {
+  display: block !important;
+}
+
+.modal-backdrop.show {
+  display: block !important;
+}
+
+.form-group {
+  margin-bottom: 1rem;
+}
+
+.invalid-feedback {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.875rem;
+  color: #dc3545;
+}
+
+.is-invalid {
+  border-color: #dc3545;
+}
+
+.spinner-border-sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.mr-2 {
+  margin-right: 0.5rem;
+}

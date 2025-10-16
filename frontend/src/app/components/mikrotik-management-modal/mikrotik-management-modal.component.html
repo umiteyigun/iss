@@ -1,0 +1,2568 @@
+<!-- Mikrotik Management Modal -->
+<div class="modal fade show d-block" *ngIf="isOpen" tabindex="-1" role="dialog" style="z-index: 9999999 !important;">
+  <div class="modal-dialog modal-lg" role="document" style="z-index: 9999999 !important;">
+    <div class="modal-content">
+      <!-- Modal Header -->
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+          <i class="fas fa-cogs me-2"></i>
+          Mikrotik Management - {{ nasDevice?.nasname || 'Unknown Device' }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="onClose()"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body p-0">
+        <div class="row g-0 h-100">
+          <!-- Left Sidebar (Menu) -->
+          <div class="col-md-3 bg-light border-end">
+            <div class="p-3">
+              <h6 class="text-muted mb-3">
+                <i class="fas fa-list me-2"></i>
+                Management Menu
+              </h6>
+              
+              <!-- Custom Credentials -->
+              <div class="mb-3">
+                <div class="form-check">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    id="useCustomCredentials"
+                    [(ngModel)]="useCustomCredentials">
+                  <label class="form-check-label" for="useCustomCredentials">
+                    Custom Credentials
+                  </label>
+                </div>
+                <div *ngIf="useCustomCredentials" class="mt-2">
+                  <input 
+                    type="text" 
+                    class="form-control form-control-sm mb-2" 
+                    placeholder="Username"
+                    [(ngModel)]="customUsername">
+                  <input 
+                    type="password" 
+                    class="form-control form-control-sm" 
+                    placeholder="Password"
+                    [(ngModel)]="customPassword">
+                </div>
+              </div>
+
+              <!-- Auto Refresh -->
+              <div class="mb-3">
+                <div class="form-check">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    id="autoRefresh"
+                    [(ngModel)]="autoRefresh"
+                    (change)="toggleAutoRefresh()">
+                  <label class="form-check-label" for="autoRefresh">
+                    Auto Refresh
+                  </label>
+                </div>
+              </div>
+
+              <!-- Menu Items -->
+              <nav class="nav nav-pills flex-column">
+                <ng-container *ngFor="let item of menuItems">
+                  <div class="nav-item">
+                    <a 
+                      class="nav-link d-flex align-items-center mb-1" 
+                      [class.active]="activeSection === item.id || activeSection.startsWith(item.id + '-')"
+                      (click)="toggleMenu(item.id, $event)"
+                      style="cursor: pointer;">
+                      <i [class]="item.icon + ' me-2'"></i>
+                      {{ item.name }}
+                      <i *ngIf="item.children" class="fas fa-chevron-down ms-auto" 
+                          [class.rotated]="isMenuOpen(item.id)"></i>
+                    </a>
+                    <div *ngIf="item.children && isMenuOpen(item.id)" 
+                         class="ms-3 submenu">
+                      <ng-container *ngFor="let child of item.children">
+                        <a 
+                          class="nav-link nav-link-sm d-flex align-items-center mb-1" 
+                          [class.active]="activeSection === child.id"
+                          (click)="selectSection(child.id, $event)"
+                          style="cursor: pointer; font-size: 0.85rem;">
+                          <i [class]="child.icon + ' me-2'"></i>
+                          {{ child.name }}
+                        </a>
+                      </ng-container>
+                    </div>
+                  </div>
+                </ng-container>
+              </nav>
+            </div>
+          </div>
+
+          <!-- Right Content Area -->
+          <div class="col-md-9">
+            <div class="p-3">
+              <!-- Loading State -->
+              <div *ngIf="loading" class="text-center py-5">
+                <div class="spinner-border text-primary" role="status">
+                  <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3 text-muted">Loading {{ activeSection }} data...</p>
+              </div>
+
+              <!-- Error State -->
+              <div *ngIf="error && !loading" class="alert alert-danger">
+                <i class="fas fa-exclamation-triangle me-2"></i>
+                {{ error }}
+                <button class="btn btn-sm btn-outline-danger ms-2" (click)="loadManagementData()">
+                  <i class="fas fa-redo me-1"></i>
+                  Retry
+                </button>
+              </div>
+
+              <!-- Content based on active section -->
+              <div *ngIf="!loading && !error && managementData">
+                <!-- Interfaces Section -->
+                <div *ngIf="activeSection === 'interfaces'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-network-wired me-2"></i>
+                    Network Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>RX Bytes</th>
+                          <th>TX Bytes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of managementData.interfaces">
+                          <td>
+                            <i class="fas fa-ethernet me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-info">{{ iface.type || 'Unknown' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ formatBytes(+(iface.rxBytes || iface.rx_byte || iface['rx-byte'] || 0)) }}</td>
+                          <td>{{ formatBytes(+(iface.txBytes || iface.tx_byte || iface['tx-byte'] || 0)) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!managementData.natRules.length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No NAT rules available
+                  </div>
+                </div>
+
+                <!-- DHCP Server Section -->
+                <div *ngIf="activeSection === 'dhcp-server'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-server me-2"></i>
+                    DHCP Server
+                    <button class="btn btn-success btn-sm ms-3" (click)="addDhcpServer()">
+                      <i class="fas fa-plus me-1"></i>Yeni DHCP Server Ekle
+                    </button>
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Interface</th>
+                          <th>Address Pool</th>
+                          <th>Lease Time</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let server of managementData.dhcpServerLeases">
+                          <td><strong>{{ server.name || 'N/A' }}</strong></td>
+                          <td>{{ server.interface || 'N/A' }}</td>
+                          <td>{{ server['address-pool'] || 'N/A' }}</td>
+                          <td>{{ server['lease-time'] || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="server.disabled !== 'true'" [class.badge-secondary]="server.disabled === 'true'">
+                              {{ server.disabled === 'true' ? 'Disabled' : 'Enabled' }}
+                            </span>
+                          </td>
+                          <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                              <button class="btn btn-outline-primary" (click)="editDhcpServer(server)" title="Edit">
+                                <i class="fas fa-edit"></i>
+                              </button>
+                              <button class="btn btn-outline-danger" (click)="deleteDhcpServer(server)" title="Delete">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!managementData.dhcpServerLeases.length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No DHCP server data available
+                  </div>
+                </div>
+
+                <!-- DHCP Client Section -->
+                <div *ngIf="activeSection === 'dhcp-client'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-laptop me-2"></i>
+                    DHCP Client
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Interface</th>
+                          <th>Status</th>
+                          <th>Address</th>
+                          <th>Gateway</th>
+                          <th>DNS</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let client of managementData.dhcpClientLeases">
+                          <td><strong>{{ client.interface || 'N/A' }}</strong></td>
+                          <td>
+                            <span class="badge" [class.badge-success]="client.status === 'bound'" [class.badge-warning]="client.status !== 'bound'">
+                              {{ client.status || 'N/A' }}
+                            </span>
+                          </td>
+                          <td>{{ client.address || 'N/A' }}</td>
+                          <td>{{ client.gateway || 'N/A' }}</td>
+                          <td>{{ client.dns || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!managementData.dhcpClientLeases.length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No DHCP client data available
+                  </div>
+                </div>
+
+
+
+                <!-- Ethernet Interfaces Section -->
+                <div *ngIf="activeSection === 'ethernet'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-ethernet me-2"></i>
+                    Ethernet Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>RX Bytes</th>
+                          <th>TX Bytes</th>
+                          <th>MAC Address</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getEthernetInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-ethernet me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-primary">{{ iface.type || 'Ethernet' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ formatBytes(+(iface.rxBytes || iface.rx_byte || iface['rx-byte'] || 0)) }}</td>
+                          <td>{{ formatBytes(+(iface.txBytes || iface.tx_byte || iface['tx-byte'] || 0)) }}</td>
+                          <td><code>{{ iface.macAddress || 'N/A' }}</code></td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getEthernetInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No ethernet interface data available
+                  </div>
+                </div>
+
+                <!-- Wireless Interfaces Section -->
+                <div *ngIf="activeSection === 'wireless'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-wifi me-2"></i>
+                    Wireless Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>SSID</th>
+                          <th>Frequency</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getWirelessInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-wifi me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-warning">{{ iface.type || 'Wireless' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.ssid || 'N/A' }}</td>
+                          <td>{{ iface.frequency || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getWirelessInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No wireless interface data available
+                  </div>
+                </div>
+
+                <!-- Bridge Interfaces Section -->
+                <div *ngIf="activeSection === 'bridge'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-link me-2"></i>
+                    Bridge Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Ports</th>
+                          <th>Protocol</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getBridgeInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-link me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-info">{{ iface.type || 'Bridge' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.ports || 'N/A' }}</td>
+                          <td>{{ iface.protocol || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getBridgeInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No bridge interface data available
+                  </div>
+                </div>
+
+                <!-- VLAN Interfaces Section -->
+                <div *ngIf="activeSection === 'vlan'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-layer-group me-2"></i>
+                    VLAN Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>VLAN ID</th>
+                          <th>Interface</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getVlanInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-layer-group me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-primary">{{ iface.type || 'VLAN' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.vlanId || 'N/A' }}</td>
+                          <td>{{ iface.interface || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getVlanInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No VLAN interface data available
+                  </div>
+                </div>
+
+                <!-- Bonding Interfaces Section -->
+                <div *ngIf="activeSection === 'bond'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-link me-2"></i>
+                    Bonding Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Mode</th>
+                          <th>Slaves</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getBondInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-link me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-secondary">{{ iface.type || 'Bond' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.mode || 'N/A' }}</td>
+                          <td>{{ iface.slaves || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getBondInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No bonding interface data available
+                  </div>
+                </div>
+
+                <!-- PPPoE Client Interfaces Section -->
+                <div *ngIf="activeSection === 'pppoe-out'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-plug me-2"></i>
+                    PPPoE Client Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>User</th>
+                          <th>Interface</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getPppoeOutInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-plug me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-warning">{{ iface.type || 'PPPoE-Out' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.user || 'N/A' }}</td>
+                          <td>{{ iface.interface || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getPppoeOutInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No PPPoE client interface data available
+                  </div>
+                </div>
+
+                <!-- PPPoE Server Interfaces Section -->
+                <div *ngIf="activeSection === 'pppoe-in'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-server me-2"></i>
+                    PPPoE Server Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Service</th>
+                          <th>Interface</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getPppoeInInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-server me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-success">{{ iface.type || 'PPPoE-In' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.service || 'N/A' }}</td>
+                          <td>{{ iface.interface || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getPppoeInInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No PPPoE server interface data available
+                  </div>
+                </div>
+
+                <!-- VPN Interfaces Section -->
+                <div *ngIf="activeSection === 'vpn'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    VPN Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Protocol</th>
+                          <th>Remote</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getVpnInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-shield-alt me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-danger">{{ iface.type || 'VPN' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.protocol || 'N/A' }}</td>
+                          <td>{{ iface.remote || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getVpnInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No VPN interface data available
+                  </div>
+                </div>
+
+                <!-- Tunnel Interfaces Section -->
+                <div *ngIf="activeSection === 'tunnel'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-tunnel me-2"></i>
+                    Tunnel Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Local</th>
+                          <th>Remote</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getTunnelInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-tunnel me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-dark">{{ iface.type || 'Tunnel' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.local || 'N/A' }}</td>
+                          <td>{{ iface.remote || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getTunnelInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No tunnel interface data available
+                  </div>
+                </div>
+
+                <!-- LTE Interfaces Section -->
+                <div *ngIf="activeSection === 'lte'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-signal me-2"></i>
+                    LTE Interfaces
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>Signal</th>
+                          <th>Network</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getLteInterfaces()" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-signal me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-info">{{ iface.type || 'LTE' }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ iface.signal || 'N/A' }}</td>
+                          <td>{{ iface.network || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getLteInterfaces().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No LTE interface data available
+                  </div>
+                </div>
+
+                <!-- Generic Interface Section for other types -->
+                <div *ngIf="activeSection === 'vrrp' || activeSection === 'loopback' || activeSection === 'ovpn-out' || activeSection === 'ovpn-in' || activeSection === 'sstp-out' || activeSection === 'sstp-in' || activeSection === 'l2tp-out' || activeSection === 'l2tp-in' || activeSection === 'pptp-out' || activeSection === 'pptp-in' || activeSection === 'gre' || activeSection === 'eoip' || activeSection === 'ipip' || activeSection === 'sit' || activeSection === '6to4' || activeSection === 'wds' || activeSection === 'mesh' || activeSection === 'cap' || activeSection === 'dynamic'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-network-wired me-2"></i>
+                    {{ getSectionTitle(activeSection) }}
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>RX Bytes</th>
+                          <th>TX Bytes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of getInterfacesByType(activeSection)" 
+                            (click)="openInterfaceDetail(iface)"
+                            style="cursor: pointer;">
+                          <td>
+                            <i class="fas fa-network-wired me-2"></i>
+                            <strong>{{ iface.name }}</strong>
+                          </td>
+                          <td>
+                            <span class="badge badge-secondary">{{ iface.type || activeSection }}</span>
+                          </td>
+                          <td>
+                            <span class="badge" [class.badge-success]="iface.running" [class.badge-danger]="!iface.running">
+                              {{ iface.running ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ formatBytes(+(iface.rx_byte || iface['rx-byte'] || 0)) }}</td>
+                          <td>{{ formatBytes(+(iface.tx_byte || iface['tx-byte'] || 0)) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getInterfacesByType(activeSection).length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No {{ activeSection }} interface data available
+                  </div>
+                </div>
+
+                <!-- DHCP Server Leases Section -->
+                <div *ngIf="activeSection === 'dhcp-server-leases'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-list me-2"></i>
+                    DHCP Server Leases
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Address</th>
+                          <th>MAC Address</th>
+                          <th>Host Name</th>
+                          <th>Server</th>
+                          <th>Status</th>
+                          <th>Last Seen</th>
+                          <th>Type</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let lease of managementData.dhcpServerLeases" [class.table-warning]="lease.dynamic">
+                          <td><strong>{{ lease.address || 'N/A' }}</strong></td>
+                          <td>{{ lease['mac-address'] || 'N/A' }}</td>
+                          <td>{{ lease['host-name'] || 'N/A' }}</td>
+                          <td>{{ lease.server || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="lease.status === 'bound'" [class.badge-warning]="lease.status === 'waiting'">
+                              {{ lease.status || 'N/A' }}
+                            </span>
+                          </td>
+                          <td>{{ lease['last-seen'] || 'N/A' }}</td>
+                          <td>
+                            <span *ngIf="lease.dynamic" class="badge bg-info text-white" title="Dinamik Lease">
+                              <i class="fas fa-sync"></i> D
+                            </span>
+                            <span *ngIf="!lease.dynamic" class="badge bg-secondary text-white" title="Statik Lease">
+                              <i class="fas fa-lock"></i> S
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!managementData.dhcpServerLeases.length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No DHCP server lease data available
+                  </div>
+                </div>
+
+                <!-- DHCP Client Section -->
+                <div *ngIf="activeSection === 'dhcp-client'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-laptop me-2"></i>
+                    DHCP Client Leases
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Interface</th>
+                          <th>Address</th>
+                          <th>Gateway</th>
+                          <th>DNS Server</th>
+                          <th>Status</th>
+                          <th>Expires In</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let lease of getDhcpClientLeases()">
+                          <td><strong>{{ lease.interface || 'N/A' }}</strong></td>
+                          <td>{{ lease.address || 'N/A' }}</td>
+                          <td>{{ lease.gateway || 'N/A' }}</td>
+                          <td>{{ lease.dnsServer || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="lease.status === 'bound'" [class.badge-warning]="lease.status === 'renewing'">
+                              {{ lease.status || 'N/A' }}
+                            </span>
+                          </td>
+                          <td>{{ lease.expiresIn || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getDhcpClientLeases().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No DHCP client lease data available
+                  </div>
+                </div>
+
+                <!-- DNS Section -->
+                <div *ngIf="activeSection === 'dns'">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                    <i class="fas fa-globe-americas me-2"></i>
+                      DNS Settings
+                  </h5>
+                    <div *ngIf="!editingDns && managementData">
+                      <button class="btn btn-primary btn-sm" (click)="startDnsEdit()">
+                        <i class="fas fa-edit me-1"></i>Edit DNS
+                      </button>
+                  </div>
+                    <div *ngIf="editingDns">
+                      <button class="btn btn-success btn-sm me-2" (click)="saveDnsSettings()" [disabled]="dnsLoading">
+                        <i class="fas fa-save me-1"></i>{{ dnsLoading ? 'Saving...' : 'Save' }}
+                      </button>
+                      <button class="btn btn-secondary btn-sm" (click)="cancelDnsEdit()">
+                        <i class="fas fa-times me-1"></i>Cancel
+                      </button>
+                  </div>
+                </div>
+
+                  <!-- DNS Edit Form -->
+                  <div *ngIf="editingDns && dnsEditForm" class="card mb-4">
+                    <div class="card-header">
+                      <h6 class="mb-0"><i class="fas fa-edit me-2"></i>Edit DNS Settings</h6>
+                  </div>
+                    <div class="card-body">
+                      <form [formGroup]="dnsEditForm">
+                        <div class="row">
+                          <div class="col-md-6">
+                            <div class="mb-3">
+                              <label class="form-label fw-bold">DNS Servers *</label>
+                              <input type="text" class="form-control" formControlName="servers" 
+                                     placeholder="e.g., 8.8.8.8,8.8.4.4" required>
+                              <small class="text-muted">Comma-separated list of DNS servers</small>
+                            </div>
+                            <div class="mb-3">
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox" formControlName="allowRemoteRequests">
+                                <label class="form-check-label fw-bold">Allow Remote Requests</label>
+                              </div>
+                              <small class="text-muted">Allow DNS requests from remote clients</small>
+                            </div>
+                            <div class="mb-3">
+                              <div class="form-check">
+                                <input class="form-check-input" type="checkbox" formControlName="verifyDohCert">
+                                <label class="form-check-label fw-bold">Verify DoH Certificate</label>
+                              </div>
+                              <small class="text-muted">Verify DNS over HTTPS certificates</small>
+                            </div>
+                          </div>
+                          <div class="col-md-6">
+                            <div class="mb-3">
+                              <label class="form-label fw-bold">Cache Size</label>
+                              <input type="text" class="form-control" formControlName="cacheSize" 
+                                     placeholder="e.g., 2048KiB">
+                            </div>
+                            <div class="mb-3">
+                              <label class="form-label fw-bold">Query Server Timeout</label>
+                              <input type="text" class="form-control" formControlName="queryServerTimeout" 
+                                     placeholder="e.g., 2s">
+                            </div>
+                            <div class="mb-3">
+                              <label class="form-label fw-bold">Query Total Timeout</label>
+                              <input type="text" class="form-control" formControlName="queryTotalTimeout" 
+                                     placeholder="e.g., 10s">
+                            </div>
+                          </div>
+                        </div>
+                        <div class="row">
+                          <div class="col-md-6">
+                            <div class="mb-3">
+                              <label class="form-label fw-bold">Max Concurrent Queries</label>
+                              <input type="number" class="form-control" formControlName="maxConcurrentQueries" 
+                                     placeholder="100">
+                            </div>
+                          </div>
+                          <div class="col-md-6">
+                            <div class="mb-3">
+                              <label class="form-label fw-bold">Max TCP Sessions</label>
+                              <input type="number" class="form-control" formControlName="maxConcurrentTcpSessions" 
+                                     placeholder="20">
+                            </div>
+                          </div>
+                        </div>
+                      </form>
+                  </div>
+                </div>
+
+                  <!-- DNS Settings Cards -->
+                  <div *ngIf="managementData" class="row mb-4">
+                    <div class="col-md-6">
+                      <div class="card">
+                        <div class="card-header">
+                          <h6 class="mb-0"><i class="fas fa-server me-2"></i>DNS Servers</h6>
+                  </div>
+                        <div class="card-body">
+                          <div class="row">
+                            <div class="col-12">
+                              <label class="form-label fw-bold">Primary Servers:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.servers || 'Not configured' }}</p>
+                            </div>
+                            <div class="col-12">
+                              <label class="form-label fw-bold">Dynamic Servers:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.dynamicServers || 'None' }}</p>
+                            </div>
+                            <div class="col-12">
+                              <label class="form-label fw-bold">DoH Server:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.useDohServer || 'Not configured' }}</p>
+                            </div>
+                          </div>
+                        </div>
+                  </div>
+                </div>
+
+                    <div class="col-md-6">
+                      <div class="card">
+                        <div class="card-header">
+                          <h6 class="mb-0"><i class="fas fa-cogs me-2"></i>Cache Settings</h6>
+                  </div>
+                        <div class="card-body">
+                          <div class="row">
+                            <div class="col-6">
+                              <label class="form-label fw-bold">Cache Size:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.cacheSize || 'N/A' }}</p>
+                            </div>
+                            <div class="col-6">
+                              <label class="form-label fw-bold">Cache Used:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.cacheUsed || 'N/A' }}</p>
+                            </div>
+                            <div class="col-6">
+                              <label class="form-label fw-bold">Max TTL:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.cacheMaxTtl || 'N/A' }}</p>
+                            </div>
+                            <div class="col-6">
+                              <label class="form-label fw-bold">Extra Time:</label>
+                              <p class="text-muted">{{ managementData.dnsSettings?.addressListExtraTime || 'N/A' }}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                  </div>
+                </div>
+
+                  <!-- DNS Configuration Table -->
+                  <div *ngIf="managementData" class="card">
+                    <div class="card-header">
+                      <h6 class="mb-0"><i class="fas fa-list me-2"></i>DNS Configuration</h6>
+                    </div>
+                    <div class="card-body">
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                              <th>Setting</th>
+                              <th>Value</th>
+                              <th>Description</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                            <tr>
+                              <td><strong>Allow Remote Requests</strong></td>
+                              <td>
+                                <span class="badge" [class.bg-success]="managementData.dnsSettings?.allowRemoteRequests" [class.bg-secondary]="!managementData.dnsSettings?.allowRemoteRequests">
+                                  {{ managementData.dnsSettings?.allowRemoteRequests ? 'Yes' : 'No' }}
+                            </span>
+                          </td>
+                              <td>Allow DNS requests from remote clients</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Verify DoH Certificate</strong></td>
+                          <td>
+                                <span class="badge" [class.bg-success]="managementData.dnsSettings?.verifyDohCert" [class.bg-secondary]="!managementData.dnsSettings?.verifyDohCert">
+                                  {{ managementData.dnsSettings?.verifyDohCert ? 'Yes' : 'No' }}
+                            </span>
+                          </td>
+                              <td>Verify DNS over HTTPS certificates</td>
+                        </tr>
+                            <tr>
+                              <td><strong>Max UDP Packet Size</strong></td>
+                              <td>{{ managementData.dnsSettings?.maxUdpPacketSize || 'N/A' }}</td>
+                              <td>Maximum UDP packet size for DNS queries</td>
+                        </tr>
+                            <tr>
+                              <td><strong>Query Server Timeout</strong></td>
+                              <td>{{ managementData.dnsSettings?.queryServerTimeout || 'N/A' }}</td>
+                              <td>Timeout for individual DNS server queries</td>
+                        </tr>
+                            <tr>
+                              <td><strong>Query Total Timeout</strong></td>
+                              <td>{{ managementData.dnsSettings?.queryTotalTimeout || 'N/A' }}</td>
+                              <td>Total timeout for DNS queries</td>
+                        </tr>
+                            <tr>
+                              <td><strong>Max Concurrent Queries</strong></td>
+                              <td>{{ managementData.dnsSettings?.maxConcurrentQueries || 'N/A' }}</td>
+                              <td>Maximum concurrent DNS queries</td>
+                        </tr>
+                            <tr>
+                              <td><strong>Max TCP Sessions</strong></td>
+                              <td>{{ managementData.dnsSettings?.maxConcurrentTcpSessions || 'N/A' }}</td>
+                              <td>Maximum concurrent TCP sessions</td>
+                        </tr>
+                            <tr>
+                              <td><strong>DoH Max Connections</strong></td>
+                              <td>{{ managementData.dnsSettings?.dohMaxServerConnections || 'N/A' }}</td>
+                              <td>Maximum DoH server connections</td>
+                        </tr>
+                            <tr>
+                              <td><strong>DoH Max Queries</strong></td>
+                              <td>{{ managementData.dnsSettings?.dohMaxConcurrentQueries || 'N/A' }}</td>
+                              <td>Maximum concurrent DoH queries</td>
+                        </tr>
+                            <tr>
+                              <td><strong>DoH Timeout</strong></td>
+                              <td>{{ managementData.dnsSettings?.dohTimeout || 'N/A' }}</td>
+                              <td>Timeout for DoH queries</td>
+                            </tr>
+                            <tr>
+                              <td><strong>VRF</strong></td>
+                              <td>{{ managementData.dnsSettings?.vrf || 'N/A' }}</td>
+                              <td>Virtual Routing and Forwarding instance</td>
+                            </tr>
+                            <tr>
+                              <td><strong>mDNS Repeat Interfaces</strong></td>
+                              <td>{{ managementData.dnsSettings?.mdnsRepeatIfaces || 'None' }}</td>
+                              <td>Interfaces for mDNS repeat</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  </div>
+                </div>
+
+                  <!-- DNS Static Records Table -->
+                  <div *ngIf="managementData" class="card mt-4">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                      <h6 class="mb-0"><i class="fas fa-list me-2"></i>DNS Static Records</h6>
+                      <button class="btn btn-success btn-sm" (click)="startAddDnsRecord()" [disabled]="addingDnsRecord || editingDnsRecord">
+                        <i class="fas fa-plus me-1"></i>Add Record
+                      </button>
+                  </div>
+                    <div class="card-body">
+                      
+                      <!-- Add/Edit DNS Record Form -->
+                      <div *ngIf="(addingDnsRecord || editingDnsRecord) && dnsRecordForm" class="card mb-3">
+                        <div class="card-header">
+                          <h6 class="mb-0">
+                            <i class="fas fa-edit me-2"></i>
+                            {{ addingDnsRecord ? 'Add DNS Static Record' : 'Edit DNS Static Record' }}
+                          </h6>
+                        </div>
+                        <div class="card-body">
+                          <form [formGroup]="dnsRecordForm">
+                            <div class="row">
+                              <div class="col-md-6">
+                                <div class="mb-3">
+                                  <label class="form-label fw-bold">Name *</label>
+                                  <input type="text" class="form-control" formControlName="name" 
+                                         placeholder="e.g., server.local" required>
+                                  <small class="text-muted">Domain name for the DNS record</small>
+                                </div>
+                                <div class="mb-3">
+                                  <label class="form-label fw-bold">Address *</label>
+                                  <input type="text" class="form-control" formControlName="address" 
+                                         placeholder="e.g., 192.168.1.100" required>
+                                  <small class="text-muted">IP address for the DNS record</small>
+                                </div>
+                              </div>
+                              <div class="col-md-6">
+                                <div class="mb-3">
+                                  <label class="form-label fw-bold">TTL</label>
+                                  <input type="text" class="form-control" formControlName="ttl" 
+                                         placeholder="e.g., 1d">
+                                  <small class="text-muted">Time to live (default: 1d)</small>
+                                </div>
+                                <div class="mb-3">
+                                  <label class="form-label fw-bold">Comment</label>
+                                  <input type="text" class="form-control" formControlName="comment" 
+                                         placeholder="Optional comment">
+                                  <small class="text-muted">Optional description</small>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="d-flex justify-content-end gap-2">
+                              <button class="btn btn-secondary" (click)="cancelDnsRecordEdit()">
+                                <i class="fas fa-times me-1"></i>Cancel
+                              </button>
+                              <button class="btn btn-success" (click)="saveDnsRecord()" [disabled]="dnsRecordLoading || !dnsRecordForm.valid">
+                                <i class="fas fa-save me-1"></i>{{ dnsRecordLoading ? 'Saving...' : 'Save' }}
+                              </button>
+                            </div>
+                          </form>
+                  </div>
+                </div>
+
+                      <!-- DNS Static Records Table -->
+                      <div class="table-responsive" *ngIf="managementData?.dnsStaticRecords?.length">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                              <th>#</th>
+                              <th>Name</th>
+                              <th>Address</th>
+                              <th>TTL</th>
+                              <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                            <tr *ngFor="let record of managementData.dnsStaticRecords; let i = index">
+                              <td>{{ i }}</td>
+                              <td><code>{{ record.name }}</code></td>
+                              <td><span class="badge bg-primary">{{ record.address }}</span></td>
+                              <td>{{ record.ttl }}</td>
+                              <td>
+                                <div class="btn-group btn-group-sm">
+                                  <button class="btn btn-outline-primary" 
+                                          (click)="startEditDnsRecord(record)"
+                                          title="Edit Record">
+                                    <i class="fas fa-edit"></i>
+                                  </button>
+                                  <button class="btn btn-outline-danger" 
+                                          (click)="deleteDnsRecord(record)"
+                                          title="Delete Record">
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                      <div *ngIf="!managementData?.dnsStaticRecords?.length" class="text-center py-4 text-muted">
+                        <i class="fas fa-list fa-2x mb-2"></i>
+                        <p class="mb-0">No DNS static records found</p>
+                        <button class="btn btn-primary btn-sm mt-2" (click)="startAddDnsRecord()">
+                          <i class="fas fa-plus me-1"></i>Add First Record
+                        </button>
+                      </div>
+                  </div>
+                </div>
+
+                  <div *ngIf="!managementData" class="text-center py-5 text-muted">
+                    <i class="fas fa-spinner fa-spin fa-2x mb-3"></i>
+                    <h6>Loading DNS Data...</h6>
+                    <p>Please wait while DNS settings are being loaded.</p>
+                  </div>
+                  
+                  <div *ngIf="managementData && !managementData.dnsSettings && !managementData.dnsStaticRecords?.length" class="text-center py-5 text-muted">
+                    <i class="fas fa-globe-americas fa-3x mb-3"></i>
+                    <h6>No DNS Data Found</h6>
+                    <p>DNS settings and records could not be loaded from this device.</p>
+                  </div>
+                </div>
+
+
+
+
+
+                <!-- Neighbor Discovery Section -->
+                <div *ngIf="activeSection === 'neighbor'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-search me-2"></i>
+                    Neighbor Discovery
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Interface</th>
+                          <th>Address</th>
+                          <th>MAC Address</th>
+                          <th>Identity</th>
+                          <th>Version</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let neighbor of getNeighborEntries()">
+                          <td><strong>{{ neighbor.interface || 'N/A' }}</strong></td>
+                          <td>{{ neighbor.address || 'N/A' }}</td>
+                          <td><code>{{ neighbor['mac-address'] || 'N/A' }}</code></td>
+                          <td>{{ neighbor.identity || 'N/A' }}</td>
+                          <td>{{ neighbor.version || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!getNeighborEntries().length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No neighbor discovery data available
+                  </div>
+                </div>
+
+
+                <!-- PPP Secrets Section -->
+                <div *ngIf="activeSection === 'ppp' || activeSection === 'secrets'">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                    <i class="fas fa-key me-2"></i>
+                    PPPoE Secrets
+                  </h5>
+                    <button class="btn btn-primary btn-sm" (click)="startAddPppoeSecret()">
+                      <i class="fas fa-plus me-1"></i>
+                      Add Secret
+                    </button>
+                  </div>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Username</th>
+                          <th>Password</th>
+                          <th>Service</th>
+                          <th>Profile</th>
+                          <th>Local Address</th>
+                          <th>Remote Address</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let secret of managementData.pppoeSecrets" [class.table-secondary]="secret.disabled === 'true'" [class.text-muted]="secret.disabled === 'true'">
+                          <td>
+                            <strong>{{ secret.name }}</strong>
+                            <span *ngIf="secret.disabled === 'true'" class="ms-2 text-muted">🚫</span>
+                          </td>
+                          <td>{{ secret.password ? '••••••••' : 'N/A' }}</td>
+                          <td>{{ secret.service || 'pppoe' }}</td>
+                          <td>{{ secret.profile || 'default' }}</td>
+                          <td>{{ secret.localAddress || 'N/A' }}</td>
+                          <td>{{ secret.remoteAddress || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="secret.disabled === 'false'" [class.badge-danger]="secret.disabled === 'true'">
+                              {{ secret.disabled === 'true' ? 'Disabled' : 'Enabled' }}
+                            </span>
+                          </td>
+                          <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                              <button 
+                                type="button" 
+                                class="btn btn-outline-primary"
+                                (click)="startEditPppoeSecret(secret)"
+                                [title]="'Edit ' + secret.name">
+                                <i class="fas fa-edit"></i>
+                              </button>
+                              <button 
+                                type="button" 
+                                class="btn"
+                                [class.btn-outline-success]="secret.disabled === 'true'"
+                                [class.btn-outline-warning]="secret.disabled === 'false'"
+                                (click)="togglePppoeSecret(secret)"
+                                [title]="(secret.disabled === 'true' ? 'Enable' : 'Disable') + ' ' + secret.name">
+                                <i [class.fas]="true" [class.fa-check]="secret.disabled === 'true'" [class.fa-times]="secret.disabled === 'false'"></i>
+                              </button>
+                              <button 
+                                type="button" 
+                                class="btn btn-outline-danger"
+                                (click)="deletePppoeSecret(secret)"
+                                [title]="'Delete ' + secret.name">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="!managementData.pppoeSecrets?.length" class="text-muted text-center py-4">
+                    <i class="fas fa-info-circle me-2"></i>
+                    No PPPoE secrets found
+                    <br>
+                    <button class="btn btn-outline-primary btn-sm mt-2" (click)="startAddPppoeSecret()">
+                      <i class="fas fa-plus me-1"></i>
+                      Add First Secret
+                    </button>
+                  </div>
+                </div>
+
+                <!-- System Resources Section -->
+                <div *ngIf="activeSection === 'system' || activeSection === 'resources'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-microchip me-2"></i>
+                    System Resources
+                  </h5>
+                  <div class="row">
+                    <div class="col-md-4">
+                      <div class="card">
+                        <div class="card-body text-center">
+                          <h6 class="card-title">CPU Usage</h6>
+                          <div class="progress mb-2">
+                            <div 
+                              class="progress-bar" 
+                              [class.bg-success]="managementData.systemInfo.cpu < 50"
+                              [class.bg-warning]="managementData.systemInfo.cpu >= 50 && managementData.systemInfo.cpu < 80"
+                              [class.bg-danger]="managementData.systemInfo.cpu >= 80"
+                              [style.width.%]="managementData.systemInfo.cpu">
+                            </div>
+                          </div>
+                          <span class="badge badge-primary">{{ managementData.systemInfo.cpu }}%</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card">
+                        <div class="card-body text-center">
+                          <h6 class="card-title">Memory Usage</h6>
+                          <div class="progress mb-2">
+                            <div 
+                              class="progress-bar" 
+                              [class.bg-success]="getMemoryUsagePercentage() < 50"
+                              [class.bg-warning]="getMemoryUsagePercentage() >= 50 && getMemoryUsagePercentage() < 80"
+                              [class.bg-danger]="getMemoryUsagePercentage() >= 80"
+                              [style.width.%]="getMemoryUsagePercentage()">
+                            </div>
+                          </div>
+                          <span class="badge badge-primary">{{ getMemoryUsagePercentage() }}%</span>
+                          <small class="d-block text-muted">
+                            {{ formatBytes(managementData.systemInfo.memory.used) }} / {{ formatBytes(managementData.systemInfo.memory.total) }}
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-4">
+                      <div class="card">
+                        <div class="card-body text-center">
+                          <h6 class="card-title">Disk Usage</h6>
+                          <div class="progress mb-2">
+                            <div 
+                              class="progress-bar" 
+                              [class.bg-success]="getDiskUsagePercentage() < 50"
+                              [class.bg-warning]="getDiskUsagePercentage() >= 50 && getDiskUsagePercentage() < 80"
+                              [class.bg-danger]="getDiskUsagePercentage() >= 80"
+                              [style.width.%]="getDiskUsagePercentage()">
+                            </div>
+                          </div>
+                          <span class="badge badge-primary">{{ getDiskUsagePercentage() }}%</span>
+                          <small class="d-block text-muted">
+                            {{ formatBytes(managementData.systemInfo.disk.used) }} / {{ formatBytes(managementData.systemInfo.disk.total) }}
+                          </small>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- IP Addresses Section -->
+                <div *ngIf="activeSection === 'addresses'">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                      <i class="fas fa-map-marker-alt me-2"></i>
+                      IP Addresses
+                    </h5>
+                    <button class="btn btn-primary btn-sm" (click)="openAddAddressModal()">
+                      <i class="fas fa-plus me-1"></i>
+                      Add Address
+                    </button>
+                  </div>
+                  
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Address</th>
+                          <th>Network</th>
+                          <th>Interface</th>
+                          <th>Comment</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let addr of managementData.ipAddresses" [class.table-warning]="isProtectedAddress(addr)">
+                          <td>
+                            <strong>{{ addr.address }}</strong>
+                            <span *ngIf="isProtectedAddress(addr)" class="badge bg-warning text-dark ms-2" title="Dinamik Adres">
+                              <i class="fas fa-lock"></i> D
+                            </span>
+                          </td>
+                          <td>{{ addr.network || 'N/A' }}</td>
+                          <td>{{ addr.interface || 'N/A' }}</td>
+                          <td>{{ addr.comment || 'N/A' }}</td>
+                          <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                              <button class="btn btn-outline-primary" 
+                                      (click)="editAddress(addr)" 
+                                      title="Edit"
+                                      [disabled]="isProtectedAddress(addr)">
+                                <i class="fas fa-edit"></i>
+                              </button>
+                              <button class="btn btn-outline-danger" 
+                                      (click)="deleteAddress(addr)" 
+                                      title="Delete" 
+                                      [disabled]="isProtectedAddress(addr)">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Routes Section -->
+                <div *ngIf="activeSection === 'routes'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-route me-2"></i>
+                    Routing Table
+                    <button class="btn btn-success btn-sm ms-3" (click)="addRoute()">
+                      <i class="fas fa-plus me-1"></i>Yeni Route Ekle
+                    </button>
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Destination</th>
+                          <th>Gateway</th>
+                          <th>Interface</th>
+                          <th>Distance</th>
+                          <th>Scope</th>
+                          <th>Status</th>
+                          <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let route of managementData.routes; let i = index" [class.table-warning]="isProtectedRoute(route)">
+                          <td>
+                            <strong>{{ route.dstAddress || '0.0.0.0/0' }}</strong>
+                            <span *ngIf="!isProtectedRoute(route)" class="badge bg-success text-white ms-2" title="Statik Route - Düzenlenebilir">
+                              <i class="fas fa-edit"></i> S
+                            </span>
+                            <span *ngIf="isProtectedRoute(route)" class="badge bg-warning text-dark ms-2" title="Dinamik/Sistem Route - Düzenlenemez">
+                              <i class="fas fa-lock"></i> D
+                            </span>
+                          </td>
+                          <td>{{ route.gateway || 'N/A' }}</td>
+                          <td>{{ route.outInterface || 'N/A' }}</td>
+                          <td>{{ route.distance || 'N/A' }}</td>
+                          <td>{{ route.scope || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="route.active === 'true'" [class.badge-danger]="route.active !== 'true'">
+                              {{ route.active === 'true' ? 'Active' : 'Inactive' }}
+                            </span>
+                          </td>
+                          <td>
+                            <div class="btn-group btn-group-sm" role="group">
+                              <button class="btn btn-outline-primary" 
+                                      (click)="editRoute(route, i)" 
+                                      title="Düzenle"
+                                      [disabled]="isProtectedRoute(route)">
+                                <i class="fas fa-edit"></i>
+                              </button>
+                              <button class="btn btn-outline-danger" 
+                                      (click)="deleteRoute(route, i)" 
+                                      title="Sil"
+                                      [disabled]="isProtectedRoute(route)">
+                                <i class="fas fa-trash"></i>
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Firewall Section with Tabs -->
+                <div *ngIf="activeSection === 'firewall'">
+                  <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                    <i class="fas fa-shield-alt me-2"></i>
+                      Firewall Management
+                  </h5>
+                    <div class="btn-group" role="group">
+                      <button type="button" class="btn btn-outline-primary btn-sm" (click)="refreshFirewallData()">
+                        <i class="fas fa-sync-alt me-1"></i>
+                        Refresh
+                      </button>
+                      <button type="button" class="btn btn-primary btn-sm" (click)="addFirewallRule()">
+                        <i class="fas fa-plus me-1"></i>
+                        Add Rule
+                      </button>
+                    </div>
+                  </div>
+
+                  <!-- Firewall Tabs -->
+                  <ul class="nav nav-tabs mb-3" role="tablist">
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" 
+                              [class.active]="isActiveFirewallTab('filter')"
+                              (click)="setActiveFirewallTab('filter')"
+                              type="button" 
+                              role="tab">
+                        <i class="fas fa-filter me-2"></i>
+                        Filter Rules
+                        <span class="badge bg-secondary ms-2" *ngIf="!firewallLoading.filter">{{ getFirewallFilterRules().length }}</span>
+                        <span class="spinner-border spinner-border-sm ms-2" *ngIf="firewallLoading.filter" role="status"></span>
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" 
+                              [class.active]="isActiveFirewallTab('nat')"
+                              (click)="setActiveFirewallTab('nat')"
+                              type="button" 
+                              role="tab">
+                        <i class="fas fa-exchange-alt me-2"></i>
+                        NAT Rules
+                        <span class="badge bg-secondary ms-2" *ngIf="!firewallLoading.nat">{{ getNatRules().length }}</span>
+                        <span class="spinner-border spinner-border-sm ms-2" *ngIf="firewallLoading.nat" role="status"></span>
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" 
+                              [class.active]="isActiveFirewallTab('mangle')"
+                              (click)="setActiveFirewallTab('mangle')"
+                              type="button" 
+                              role="tab">
+                        <i class="fas fa-cogs me-2"></i>
+                        Mangle Rules
+                        <span class="badge bg-secondary ms-2">{{ getFirewallMangleRules().length }}</span>
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" 
+                              [class.active]="isActiveFirewallTab('raw')"
+                              (click)="setActiveFirewallTab('raw')"
+                              type="button" 
+                              role="tab">
+                        <i class="fas fa-code me-2"></i>
+                        Raw Rules
+                        <span class="badge bg-secondary ms-2">{{ getFirewallRawRules().length }}</span>
+                      </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                      <button class="nav-link" 
+                              [class.active]="isActiveFirewallTab('connections')"
+                              (click)="setActiveFirewallTab('connections')"
+                              type="button" 
+                              role="tab">
+                        <i class="fas fa-network-wired me-2"></i>
+                        Active Connections
+                      </button>
+                    </li>
+                  </ul>
+
+                  <!-- Tab Content -->
+                  <div class="tab-content">
+                    <!-- Filter Rules Tab -->
+                    <div *ngIf="isActiveFirewallTab('filter')" class="tab-pane active" role="tabpanel">
+                      <!-- Loading State -->
+                      <div *ngIf="firewallLoading.filter" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                          <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading Filter Rules...</p>
+                      </div>
+                      
+                      <!-- Content -->
+                      <div *ngIf="!firewallLoading.filter">
+                  <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                              <th>#</th>
+                          <th>Chain</th>
+                          <th>Action</th>
+                          <th>Protocol</th>
+                              <th>Source</th>
+                              <th>Destination</th>
+                              <th>Ports</th>
+                          <th>Comment</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                            <tr *ngFor="let rule of getFirewallFilterRules(); let i = index" 
+                                [class.table-secondary]="rule.disabled === 'true'"
+                                [class.text-muted]="rule.disabled === 'true'">
+                              <td>{{ i + 1 }}<span *ngIf="rule.disabled === 'true'" class="ms-2 text-muted">🚫</span></td>
+                              <td>
+                                <span class="badge bg-info">{{ rule.chain || 'N/A' }}</span>
+                              </td>
+                              <td>
+                                <span class="badge" 
+                                      [class.bg-success]="rule.action === 'accept'" 
+                                      [class.bg-danger]="rule.action === 'drop'" 
+                                      [class.bg-warning]="rule.action === 'reject'"
+                                      [class.bg-secondary]="rule.action !== 'accept' && rule.action !== 'drop' && rule.action !== 'reject'">
+                              {{ rule.action || 'N/A' }}
+                            </span>
+                          </td>
+                              <td>{{ rule.protocol || 'Any' }}</td>
+                              <td>
+                                <span class="text-muted">{{ rule.srcAddress || 'Any' }}</span>
+                              </td>
+                              <td>
+                                <span class="text-muted">{{ rule.dstAddress || 'Any' }}</span>
+                              </td>
+                              <td>
+                                <small *ngIf="rule.srcPort || rule.dstPort">
+                                  {{ rule.srcPort ? 'S:' + rule.srcPort : '' }}
+                                  {{ rule.srcPort && rule.dstPort ? ' | ' : '' }}
+                                  {{ rule.dstPort ? 'D:' + rule.dstPort : '' }}
+                                </small>
+                                <span *ngIf="!rule.srcPort && !rule.dstPort" class="text-muted">Any</span>
+                              </td>
+                              <td>
+                                <span class="text-muted">{{ rule.comment || '-' }}</span>
+                              </td>
+                              <td>
+                                <span class="badge" 
+                                      [class.bg-success]="rule.disabled === 'false'" 
+                                      [class.bg-secondary]="rule.disabled === 'true'">
+                                  {{ rule.disabled === 'false' ? 'Enabled' : 'Disabled' }}
+                                </span>
+                              </td>
+                              <td>
+                                <div class="btn-group btn-group-sm">
+                                  <button class="btn btn-outline-primary" 
+                                          (click)="editFirewallRule(rule)"
+                                          title="Edit Rule">
+                                    <i class="fas fa-edit"></i>
+                                  </button>
+                                  <button class="btn btn-outline-warning" 
+                                          (click)="toggleFirewallRule(rule)"
+                                          [title]="rule.disabled === 'true' ? 'Enable Rule' : 'Disable Rule'">
+                                    <i class="fas" [class.fa-play]="rule.disabled === 'true'" [class.fa-pause]="rule.disabled === 'false'"></i>
+                                  </button>
+                                  <button class="btn btn-outline-danger" 
+                                          (click)="deleteFirewallRule(rule)"
+                                          title="Delete Rule">
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </div>
+                              </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                        <div *ngIf="!getFirewallFilterRules().length" class="text-center py-5 text-muted">
+                          <i class="fas fa-shield-alt fa-3x mb-3"></i>
+                          <h6>No Filter Rules Found</h6>
+                          <p>Click "Add Rule" to create your first firewall rule.</p>
+                        </div>
+                  </div>
+                </div>
+
+                    <!-- NAT Rules Tab -->
+                    <div *ngIf="isActiveFirewallTab('nat')" class="tab-pane active" role="tabpanel">
+                      <!-- Loading State -->
+                      <div *ngIf="firewallLoading.nat" class="text-center py-5">
+                        <div class="spinner-border text-primary" role="status">
+                          <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 text-muted">Loading NAT Rules...</p>
+                      </div>
+                      
+                      <!-- Content -->
+                      <div *ngIf="!firewallLoading.nat">
+                  <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                              <th>#</th>
+                          <th>Chain</th>
+                          <th>Action</th>
+                              <th>Source</th>
+                              <th>Destination</th>
+                          <th>To Addresses</th>
+                          <th>Comment</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                            <tr *ngFor="let rule of getNatRules(); let i = index" 
+                                [class.table-secondary]="rule.disabled === 'true'"
+                                [class.text-muted]="rule.disabled === 'true'">
+                              <td>{{ i + 1 }}<span *ngIf="rule.disabled === 'true'" class="ms-2 text-muted">🚫</span></td>
+                              <td>
+                                <span class="badge bg-warning">{{ rule.chain || 'N/A' }}</span>
+                              </td>
+                              <td>
+                                <span class="badge bg-info">{{ rule.action || 'N/A' }}</span>
+                              </td>
+                              <td>{{ rule.srcAddress || 'Any' }}</td>
+                              <td>{{ rule.dstAddress || 'Any' }}</td>
+                              <td>
+                                <span class="text-primary">{{ rule['to-addresses'] || '-' }}</span>
+                              </td>
+                              <td>{{ rule.comment || '-' }}</td>
+                              <td>
+                                <span class="badge" 
+                                      [class.bg-success]="rule.disabled === 'false'" 
+                                      [class.bg-secondary]="rule.disabled === 'true'">
+                                  {{ rule.disabled === 'false' ? 'Enabled' : 'Disabled' }}
+                            </span>
+                          </td>
+                              <td>
+                                <div class="btn-group btn-group-sm">
+                                  <button class="btn btn-outline-primary" 
+                                          (click)="editFirewallRule(rule)"
+                                          title="Edit Rule">
+                                    <i class="fas fa-edit"></i>
+                                  </button>
+                                  <button class="btn btn-outline-warning" 
+                                          (click)="toggleFirewallRule(rule)"
+                                          [title]="rule.disabled === 'true' ? 'Enable Rule' : 'Disable Rule'">
+                                    <i class="fas" [class.fa-play]="rule.disabled === 'true'" [class.fa-pause]="rule.disabled === 'false'"></i>
+                                  </button>
+                                  <button class="btn btn-outline-danger" 
+                                          (click)="deleteFirewallRule(rule)"
+                                          title="Delete Rule">
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </div>
+                              </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                        <div *ngIf="!getNatRules().length" class="text-center py-5 text-muted">
+                          <i class="fas fa-exchange-alt fa-3x mb-3"></i>
+                          <h6>No NAT Rules Found</h6>
+                          <p>No NAT rules are currently configured.</p>
+                        </div>
+                  </div>
+                </div>
+
+                    <!-- Mangle Rules Tab -->
+                    <div *ngIf="isActiveFirewallTab('mangle')" class="tab-pane active" role="tabpanel">
+                      <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                          <thead class="table-dark">
+                            <tr>
+                              <th>#</th>
+                              <th>Chain</th>
+                              <th>Action</th>
+                              <th>Protocol</th>
+                              <th>Source</th>
+                              <th>Destination</th>
+                              <th>Comment</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let rule of getFirewallMangleRules(); let i = index" 
+                                [class.table-secondary]="rule.disabled === 'true'"
+                                [class.text-muted]="rule.disabled === 'true'">
+                              <td>{{ i + 1 }}<span *ngIf="rule.disabled === 'true'" class="ms-2 text-muted">🚫</span></td>
+                              <td>
+                                <span class="badge bg-purple">{{ rule.chain || 'N/A' }}</span>
+                              </td>
+                              <td>
+                                <span class="badge bg-warning">{{ rule.action || 'N/A' }}</span>
+                              </td>
+                              <td>{{ rule.protocol || 'Any' }}</td>
+                              <td>{{ rule.srcAddress || 'Any' }}</td>
+                              <td>{{ rule.dstAddress || 'Any' }}</td>
+                              <td>{{ rule.comment || '-' }}</td>
+                              <td>
+                                <span class="badge" 
+                                      [class.bg-success]="rule.disabled === 'false'" 
+                                      [class.bg-secondary]="rule.disabled === 'true'">
+                                  {{ rule.disabled === 'false' ? 'Enabled' : 'Disabled' }}
+                                </span>
+                              </td>
+                              <td>
+                                <div class="btn-group btn-group-sm">
+                                  <button class="btn btn-outline-primary" 
+                                          (click)="editFirewallRule(rule)"
+                                          title="Edit Rule">
+                                    <i class="fas fa-edit"></i>
+                                  </button>
+                                  <button class="btn btn-outline-warning" 
+                                          (click)="toggleFirewallRule(rule)"
+                                          [title]="rule.disabled === 'true' ? 'Enable Rule' : 'Disable Rule'">
+                                    <i class="fas" [class.fa-play]="rule.disabled === 'true'" [class.fa-pause]="rule.disabled === 'false'"></i>
+                                  </button>
+                                  <button class="btn btn-outline-danger" 
+                                          (click)="deleteFirewallRule(rule)"
+                                          title="Delete Rule">
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div *ngIf="!getFirewallMangleRules().length" class="text-center py-5 text-muted">
+                        <i class="fas fa-cogs fa-3x mb-3"></i>
+                        <h6>No Mangle Rules Found</h6>
+                        <p>No mangle rules are currently configured.</p>
+                      </div>
+                    </div>
+
+                    <!-- Raw Rules Tab -->
+                    <div *ngIf="isActiveFirewallTab('raw')" class="tab-pane active" role="tabpanel">
+                      <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                          <thead class="table-dark">
+                            <tr>
+                              <th>#</th>
+                              <th>Chain</th>
+                              <th>Action</th>
+                              <th>Protocol</th>
+                              <th>Source</th>
+                              <th>Destination</th>
+                              <th>Comment</th>
+                              <th>Status</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let rule of getFirewallRawRules(); let i = index" 
+                                [class.table-secondary]="rule.disabled === 'true'"
+                                [class.text-muted]="rule.disabled === 'true'">
+                              <td>{{ i + 1 }}<span *ngIf="rule.disabled === 'true'" class="ms-2 text-muted">🚫</span></td>
+                              <td>
+                                <span class="badge bg-dark">{{ rule.chain || 'N/A' }}</span>
+                              </td>
+                              <td>
+                                <span class="badge bg-secondary">{{ rule.action || 'N/A' }}</span>
+                              </td>
+                              <td>{{ rule.protocol || 'Any' }}</td>
+                              <td>{{ rule.srcAddress || 'Any' }}</td>
+                              <td>{{ rule.dstAddress || 'Any' }}</td>
+                              <td>{{ rule.comment || '-' }}</td>
+                              <td>
+                                <span class="badge" 
+                                      [class.bg-success]="rule.disabled === 'false'" 
+                                      [class.bg-secondary]="rule.disabled === 'true'">
+                                  {{ rule.disabled === 'false' ? 'Enabled' : 'Disabled' }}
+                                </span>
+                              </td>
+                              <td>
+                                <div class="btn-group btn-group-sm">
+                                  <button class="btn btn-outline-primary" 
+                                          (click)="editFirewallRule(rule)"
+                                          title="Edit Rule">
+                                    <i class="fas fa-edit"></i>
+                                  </button>
+                                  <button class="btn btn-outline-warning" 
+                                          (click)="toggleFirewallRule(rule)"
+                                          [title]="rule.disabled === 'true' ? 'Enable Rule' : 'Disable Rule'">
+                                    <i class="fas" [class.fa-play]="rule.disabled === 'true'" [class.fa-pause]="rule.disabled === 'false'"></i>
+                                  </button>
+                                  <button class="btn btn-outline-danger" 
+                                          (click)="deleteFirewallRule(rule)"
+                                          title="Delete Rule">
+                                    <i class="fas fa-trash"></i>
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div *ngIf="!getFirewallRawRules().length" class="text-center py-5 text-muted">
+                        <i class="fas fa-code fa-3x mb-3"></i>
+                        <h6>No Raw Rules Found</h6>
+                        <p>No raw rules are currently configured.</p>
+                      </div>
+                    </div>
+
+                    <!-- Active Connections Tab -->
+                    <div *ngIf="isActiveFirewallTab('connections')" class="tab-pane active" role="tabpanel">
+                      <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">Active Network Connections</h6>
+                        <button type="button" class="btn btn-outline-secondary btn-sm" (click)="refreshConnections()">
+                          <i class="fas fa-sync-alt me-1"></i>
+                          Refresh
+                        </button>
+                      </div>
+                      <div class="table-responsive">
+                        <table class="table table-striped table-hover table-sm">
+                          <thead class="table-dark">
+                            <tr>
+                              <th>Protocol</th>
+                              <th>Source</th>
+                              <th>Destination</th>
+                              <th>State</th>
+                              <th>Bytes</th>
+                              <th>Packets</th>
+                              <th>Timeout</th>
+                              <th>Actions</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr *ngFor="let conn of getActiveConnections(); let i = index">
+                              <td>
+                                <span class="badge bg-info">{{ conn.protocol || 'N/A' }}</span>
+                              </td>
+                              <td>{{ conn.srcAddress }}:{{ conn.srcPort }}</td>
+                              <td>{{ conn.dstAddress }}:{{ conn.dstPort }}</td>
+                              <td>
+                                <span class="badge" 
+                                      [class.bg-success]="conn.state === 'established'" 
+                                      [class.bg-warning]="conn.state === 'new'"
+                                      [class.bg-info]="conn.state === 'related'"
+                                      [class.bg-secondary]="conn.state !== 'established' && conn.state !== 'new' && conn.state !== 'related'">
+                                  {{ conn.state || 'N/A' }}
+                                </span>
+                              </td>
+                              <td>{{ formatBytes(conn.bytes) }}</td>
+                              <td>{{ conn.packets || '0' }}</td>
+                              <td>{{ conn.timeout || 'N/A' }}</td>
+                              <td>
+                                <button class="btn btn-outline-danger btn-sm" 
+                                        (click)="closeConnection(conn)"
+                                        title="Close Connection">
+                                  <i class="fas fa-times"></i>
+                                </button>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                      <div *ngIf="!getActiveConnections().length" class="text-center py-5 text-muted">
+                        <i class="fas fa-network-wired fa-3x mb-3"></i>
+                        <h6>No Active Connections</h6>
+                        <p>No active network connections found.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+
+                <!-- PPP Profiles Section -->
+                <div *ngIf="activeSection === 'profiles'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-user-cog me-2"></i>
+                    PPP Profiles
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Local Address</th>
+                          <th>Remote Address</th>
+                          <th>DNS Server</th>
+                          <th>Use Encryption</th>
+                          <th>Comment</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let profile of managementData.pppProfiles">
+                          <td><strong>{{ profile.name }}</strong></td>
+                          <td>{{ profile.localAddress || 'N/A' }}</td>
+                          <td>{{ profile.remoteAddress || 'N/A' }}</td>
+                          <td>{{ profile.dnsServer || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="profile.useEncryption === 'yes'" [class.badge-danger]="profile.useEncryption !== 'yes'">
+                              {{ profile.useEncryption === 'yes' ? 'Yes' : 'No' }}
+                            </span>
+                          </td>
+                          <td>{{ profile.comment || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Active PPP Sessions Section -->
+                <div *ngIf="activeSection === 'active'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-play-circle me-2"></i>
+                    Active PPP Sessions
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Name</th>
+                          <th>Address</th>
+                          <th>Uptime</th>
+                          <th>Encoding</th>
+                          <th>Session ID</th>
+                          <th>Service</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let session of managementData.activePppSessions">
+                          <td><strong>{{ session.name }}</strong></td>
+                          <td>{{ session.address || 'N/A' }}</td>
+                          <td>{{ formatUptime(session.uptime) }}</td>
+                          <td>{{ session.encoding || 'N/A' }}</td>
+                          <td>{{ session.sessionId || 'N/A' }}</td>
+                          <td>
+                            <span class="badge badge-info">
+                              {{ session.service || 'pppoe' }}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- System Logs Section -->
+                <div *ngIf="activeSection === 'logs'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-file-alt me-2"></i>
+                    System Logs
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Time</th>
+                          <th>Level</th>
+                          <th>Message</th>
+                          <th>Topics</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let log of managementData.systemLogs">
+                          <td>{{ log.time || 'N/A' }}</td>
+                          <td>
+                            <span class="badge" 
+                                  [class.badge-danger]="log.level === 'error'"
+                                  [class.badge-warning]="log.level === 'warning'"
+                                  [class.badge-info]="log.level === 'info'"
+                                  [class.badge-secondary]="!['error', 'warning', 'info'].includes(log.level)">
+                              {{ log.level || 'N/A' }}
+                            </span>
+                          </td>
+                          <td>{{ log.message || 'N/A' }}</td>
+                          <td>{{ log.topics || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- System Identity Section -->
+                <div *ngIf="activeSection === 'identity'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-id-card me-2"></i>
+                    System Identity
+                  </h5>
+                  <div class="row">
+                    <div class="col-md-6">
+                      <div class="card">
+                        <div class="card-body">
+                          <h6 class="card-title">Device Information</h6>
+                          <table class="table table-sm">
+                            <tr>
+                              <td><strong>Name:</strong></td>
+                              <td>{{ managementData.identity.name || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Version:</strong></td>
+                              <td>{{ managementData.identity.version || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Architecture:</strong></td>
+                              <td>{{ managementData.identity.architecture || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Board Name:</strong></td>
+                              <td>{{ managementData.identity.boardName || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Uptime:</strong></td>
+                              <td>{{ formatUptime(managementData.identity.uptime) }}</td>
+                            </tr>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                    <div class="col-md-6">
+                      <div class="card">
+                        <div class="card-body">
+                          <h6 class="card-title">Network Information</h6>
+                          <table class="table table-sm">
+                            <tr>
+                              <td><strong>MAC Address:</strong></td>
+                              <td>{{ managementData.identity.macAddress || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Serial Number:</strong></td>
+                              <td>{{ managementData.identity.serialNumber || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>License Level:</strong></td>
+                              <td>{{ managementData.identity.licenseLevel || 'N/A' }}</td>
+                            </tr>
+                            <tr>
+                              <td><strong>Factory Firmware:</strong></td>
+                              <td>{{ managementData.identity.factoryFirmware || 'N/A' }}</td>
+                            </tr>
+                          </table>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Ping Tool Section -->
+                <div *ngIf="activeSection === 'ping'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-broadcast-tower me-2"></i>
+                    Ping Tool
+                  </h5>
+                  <div class="row mb-3">
+                    <div class="col-md-8">
+                      <input type="text" class="form-control" placeholder="Enter IP address or hostname" [(ngModel)]="pingTarget">
+                    </div>
+                    <div class="col-md-4">
+                      <button class="btn btn-primary" (click)="executePing()">
+                        <i class="fas fa-play me-1"></i>
+                        Ping
+                      </button>
+                    </div>
+                  </div>
+                  <div class="table-responsive" *ngIf="managementData.pingResults.length > 0">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Host</th>
+                          <th>Status</th>
+                          <th>Time</th>
+                          <th>TTL</th>
+                          <th>Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let result of managementData.pingResults">
+                          <td><strong>{{ result.host }}</strong></td>
+                          <td>
+                            <span class="badge" [class.badge-success]="result.status === 'success'" [class.badge-danger]="result.status !== 'success'">
+                              {{ result.status === 'success' ? 'Success' : 'Failed' }}
+                            </span>
+                          </td>
+                          <td>{{ result.time || 'N/A' }}ms</td>
+                          <td>{{ result.ttl || 'N/A' }}</td>
+                          <td>{{ result.size || 'N/A' }} bytes</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Traceroute Tool Section -->
+                <div *ngIf="activeSection === 'traceroute'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-route me-2"></i>
+                    Traceroute Tool
+                  </h5>
+                  <div class="row mb-3">
+                    <div class="col-md-8">
+                      <input type="text" class="form-control" placeholder="Enter IP address or hostname" [(ngModel)]="tracerouteTarget">
+                    </div>
+                    <div class="col-md-4">
+                      <button class="btn btn-primary" (click)="executeTraceroute()">
+                        <i class="fas fa-play me-1"></i>
+                        Traceroute
+                      </button>
+                    </div>
+                  </div>
+                  <div class="table-responsive" *ngIf="managementData.tracerouteResults.length > 0">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Hop</th>
+                          <th>Host</th>
+                          <th>Time</th>
+                          <th>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let result of managementData.tracerouteResults">
+                          <td><strong>{{ result.hop }}</strong></td>
+                          <td>{{ result.host || 'N/A' }}</td>
+                          <td>{{ result.time || 'N/A' }}ms</td>
+                          <td>
+                            <span class="badge" [class.badge-success]="result.status === 'success'" [class.badge-warning]="result.status === 'timeout'">
+                              {{ result.status === 'success' ? 'Success' : result.status === 'timeout' ? 'Timeout' : 'Failed' }}
+                            </span>
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                <!-- Netwatch Tool Section -->
+                <div *ngIf="activeSection === 'netwatch'">
+                  <h5 class="mb-3">
+                    <i class="fas fa-eye me-2"></i>
+                    Netwatch Tool
+                  </h5>
+                  <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                      <thead class="table-dark">
+                        <tr>
+                          <th>Host</th>
+                          <th>Status</th>
+                          <th>Interval</th>
+                          <th>Timeout</th>
+                          <th>Comment</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let watch of managementData.netwatchResults">
+                          <td><strong>{{ watch.host }}</strong></td>
+                          <td>
+                            <span class="badge" [class.badge-success]="watch.status === 'up'" [class.badge-danger]="watch.status === 'down'">
+                              {{ watch.status === 'up' ? 'Up' : 'Down' }}
+                            </span>
+                          </td>
+                          <td>{{ watch.interval || 'N/A' }}s</td>
+                          <td>{{ watch.timeout || 'N/A' }}s</td>
+                          <td>{{ watch.comment || 'N/A' }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer bg-light">
+        <div class="d-flex justify-content-between w-100">
+          <div>
+            <small class="text-muted" *ngIf="lastUpdate">
+              Last updated: {{ lastUpdate | date:'medium' }}
+            </small>
+          </div>
+          <div>
+            <button type="button" class="btn btn-secondary" (click)="onClose()">
+              <i class="fas fa-times me-1"></i>
+              Close
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Interface Detail Modal -->
+<app-interface-detail-modal
+  [interfaceData]="selectedInterface"
+  [isVisible]="showInterfaceDetail"
+  (close)="closeInterfaceDetail()"
+  (save)="saveInterfaceChanges($event)">
+</app-interface-detail-modal>
+
+<!-- IP Address Add/Edit Modal -->
+<div class="modal fade" [class.show]="showAddressModal" [style.display]="showAddressModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-dialog-centered" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-map-marker-alt me-2"></i>
+          {{ isEditingAddress ? 'Edit IP Address' : 'Add IP Address' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeAddressModal()"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="addressForm" (ngSubmit)="saveAddress()">
+          <div class="mb-3">
+            <label for="address" class="form-label">IP Address/CIDR <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="address" formControlName="address" 
+                   placeholder="192.168.1.1/24" [class.is-invalid]="addressForm.get('address')?.invalid && addressForm.get('address')?.touched">
+            <div class="invalid-feedback" *ngIf="addressForm.get('address')?.invalid && addressForm.get('address')?.touched">
+              Please enter a valid IP address with CIDR notation (e.g., 192.168.1.1/24)
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="interface" class="form-label">Interface <span class="text-danger">*</span></label>
+            <div *ngIf="isInterfaceLoading" class="d-flex align-items-center mb-2">
+              <div class="spinner-border spinner-border-sm me-2" role="status">
+                <span class="visually-hidden">Loading...</span>
+              </div>
+              <span class="text-muted">Yükleniyor, lütfen bekleyin...</span>
+            </div>
+            <select class="form-select" id="interface" formControlName="interface" 
+                    [class.is-invalid]="addressForm.get('interface')?.invalid && addressForm.get('interface')?.touched"
+                    [disabled]="isInterfaceLoading">
+              <option value="">{{ isInterfaceLoading ? 'Yükleniyor...' : 'Select Interface' }}</option>
+              <option *ngFor="let iface of availableInterfaces" [value]="iface.name">
+                {{ iface.name }} ({{ iface.type }})
+              </option>
+            </select>
+            <div class="invalid-feedback" *ngIf="addressForm.get('interface')?.invalid && addressForm.get('interface')?.touched">
+              Please select an interface
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="comment" class="form-label">Comment</label>
+            <input type="text" class="form-control" id="comment" formControlName="comment" 
+                   placeholder="Optional comment">
+          </div>
+          
+          <div class="form-check mb-3">
+            <input class="form-check-input" type="checkbox" id="disabled" formControlName="disabled">
+            <label class="form-check-label" for="disabled">
+              Disabled
+            </label>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeAddressModal()">
+          <i class="fas fa-times me-1"></i>
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveAddress()" [disabled]="addressForm.invalid || isAddressLoading">
+          <i class="fas fa-spinner fa-spin me-1" *ngIf="isAddressLoading"></i>
+          <i class="fas fa-save me-1" *ngIf="!isAddressLoading"></i>
+          {{ isEditingAddress ? 'Update' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Route Modal -->
+<div class="modal fade" [class.show]="showRouteModal" [style.display]="showRouteModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog" aria-labelledby="routeModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="routeModalLabel">
+          <i class="fas fa-route me-2"></i>
+          {{ isEditingRoute ? 'Edit Route' : 'Add New Route' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="closeRouteModal()" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="routeForm" novalidate>
+          <div class="mb-3">
+            <label for="dst-address" class="form-label">Destination Address *</label>
+            <input type="text" class="form-control" id="dst-address" formControlName="dstAddress" 
+                   placeholder="192.168.1.0/24" 
+                   [class.is-invalid]="routeForm.get('dstAddress')?.invalid && routeForm.get('dstAddress')?.touched">
+            <div class="invalid-feedback" *ngIf="routeForm.get('dstAddress')?.invalid && routeForm.get('dstAddress')?.touched">
+              Please enter a valid destination address (e.g., 192.168.1.0/24)
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="gateway" class="form-label">Gateway *</label>
+            <input type="text" class="form-control" id="gateway" formControlName="gateway" 
+                   placeholder="192.168.1.1" 
+                   [class.is-invalid]="routeForm.get('gateway')?.invalid && routeForm.get('gateway')?.touched">
+            <div class="invalid-feedback" *ngIf="routeForm.get('gateway')?.invalid && routeForm.get('gateway')?.touched">
+              Please enter a valid gateway IP address
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="distance" class="form-label">Distance</label>
+            <input type="number" class="form-control" id="distance" formControlName="distance" 
+                   min="1" max="255" placeholder="1" 
+                   [class.is-invalid]="routeForm.get('distance')?.invalid && routeForm.get('distance')?.touched">
+            <div class="invalid-feedback" *ngIf="routeForm.get('distance')?.invalid && routeForm.get('distance')?.touched">
+              Distance must be between 1 and 255
+            </div>
+          </div>
+          
+          <div class="mb-3">
+            <label for="route-comment" class="form-label">Comment</label>
+            <input type="text" class="form-control" id="route-comment" formControlName="comment" 
+                   placeholder="Optional comment">
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeRouteModal()">
+          <i class="fas fa-times me-1"></i>
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="saveRoute()" [disabled]="routeForm.invalid || isRouteLoading">
+          <i class="fas fa-spinner fa-spin me-1" *ngIf="isRouteLoading"></i>
+          <i class="fas fa-save me-1" *ngIf="!isRouteLoading"></i>
+          {{ isEditingRoute ? 'Update' : 'Add' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PPPoE Secret Modal -->
+<div class="modal fade" [class.show]="showPppoeSecretModal" [style.display]="showPppoeSecretModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog" aria-labelledby="pppoeSecretModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="pppoeSecretModalLabel">
+          <i class="fas fa-key me-2"></i>
+          {{ isEditingPppoeSecret ? 'Edit PPPoE Secret' : 'Add New PPPoE Secret' }}
+        </h5>
+        <button type="button" class="btn-close" (click)="cancelPppoeSecretEdit()" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="pppoeSecretForm" novalidate>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretName" class="form-label">Username *</label>
+                <input type="text" class="form-control" id="secretName" formControlName="name" 
+                       placeholder="Enter username" required>
+                <div *ngIf="pppoeSecretForm.get('name')?.invalid && pppoeSecretForm.get('name')?.touched" 
+                     class="text-danger small">
+                  Username is required
+                </div>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretPassword" class="form-label">Password *</label>
+                <input type="password" class="form-control" id="secretPassword" formControlName="password" 
+                       placeholder="Enter password" required>
+                <div *ngIf="pppoeSecretForm.get('password')?.invalid && pppoeSecretForm.get('password')?.touched" 
+                     class="text-danger small">
+                  Password is required
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretService" class="form-label">Service</label>
+                <select class="form-select" id="secretService" formControlName="service">
+                  <option value="any">Any</option>
+                  <option value="pppoe">PPPoE</option>
+                  <option value="pptp">PPTP</option>
+                  <option value="l2tp">L2TP</option>
+                  <option value="sstp">SSTP</option>
+                  <option value="ovpn">OpenVPN</option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretProfile" class="form-label">Profile</label>
+                <select class="form-select" id="secretProfile" formControlName="profile">
+                  <option value="">Select Profile (Optional)</option>
+                  <option *ngFor="let profile of pppProfiles" [value]="profile.name">
+                    {{ profile.name }}
+                    <span *ngIf="profile.localAddress"> ({{ profile.localAddress }})</span>
+                  </option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretLocalAddress" class="form-label">Local Address</label>
+                <input type="text" class="form-control" id="secretLocalAddress" formControlName="localAddress" 
+                       placeholder="e.g., 192.168.1.1">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretRemoteAddress" class="form-label">Remote Address</label>
+                <input type="text" class="form-control" id="secretRemoteAddress" formControlName="remoteAddress" 
+                       placeholder="e.g., 192.168.1.100">
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretRoutes" class="form-label">Routes</label>
+                <input type="text" class="form-control" id="secretRoutes" formControlName="routes" 
+                       placeholder="e.g., 192.168.0.0/16">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="mb-3">
+                <label for="secretComment" class="form-label">Comment</label>
+                <input type="text" class="form-control" id="secretComment" formControlName="comment" 
+                       placeholder="Optional comment">
+              </div>
+            </div>
+          </div>
+
+          <div class="mb-3">
+            <div class="form-check">
+              <input class="form-check-input" type="checkbox" id="secretDisabled" formControlName="disabled">
+              <label class="form-check-label" for="secretDisabled">
+                Disabled
+              </label>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="cancelPppoeSecretEdit()">
+          <i class="fas fa-times me-1"></i>
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" 
+                (click)="savePppoeSecret()" 
+                [disabled]="!pppoeSecretForm.valid || isPppoeSecretLoading">
+          <span *ngIf="isPppoeSecretLoading" class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+          <i *ngIf="!isPppoeSecretLoading" class="fas fa-save me-1"></i>
+          {{ isPppoeSecretLoading ? 'Saving...' : 'Save Secret' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop - Removed, using modal background instead -->

@@ -1,0 +1,339 @@
+<div class="content-wrapper">
+  <!-- Content Header -->
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1 class="m-0">{{ 'recent_activity.title' | translate }}</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="#">{{ 'common.home' | translate }}</a></li>
+            <li class="breadcrumb-item active">{{ 'recent_activity.title' | translate }}</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <section class="content">
+    <div class="container-fluid">
+      
+      <!-- Recent Sessions Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ 'recent_activity.recent_sessions' | translate }} <small class="text-muted">({{ 'recent_activity.last_15_records' | translate }})</small></h3>
+          <div class="card-tools">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-sm" style="width: 200px;">
+                  <input type="text" class="form-control" [placeholder]="'recent_activity.search_user' | translate" 
+                         [(ngModel)]="sessionsSearch" (keyup.enter)="onSessionsSearch()">
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" type="button" (click)="onSessionsSearch()">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6" *ngIf="isSuperAdmin">
+                <div class="input-group input-group-sm" style="width: 200px;">
+                  <select class="form-control" [(ngModel)]="sessionsTenantFilter" (change)="onSessionsTenantFilterChange()">
+                    <option value="">{{ 'common.all_tenants' | translate }}</option>
+                    <option value="unassigned">{{ 'recent_activity.not_assigned' | translate }}</option>
+                    <option *ngFor="let tenant of tenants" [value]="tenant.id">
+                      {{ tenant.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th style="width: 12%;">{{ 'recent_activity.user' | translate }}</th>
+                  <th style="width: 10%;">{{ 'recent_activity.tenant' | translate }}</th>
+                  <th style="width: 10%;">{{ 'recent_activity.status' | translate }}</th>
+                  <th style="width: 10%;">{{ 'recent_activity.start' | translate }}</th>
+                  <th style="width: 10%;">{{ 'recent_activity.end' | translate }}</th>
+                  <th style="width: 8%;">{{ 'recent_activity.duration' | translate }}</th>
+                  <th style="width: 8%;">{{ 'recent_activity.upload' | translate }}</th>
+                  <th style="width: 8%;">{{ 'recent_activity.download' | translate }}</th>
+                  <th style="width: 8%;">{{ 'recent_activity.ip' | translate }}</th>
+                  <th style="width: 10%;">{{ 'recent_activity.nas' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="loadingSessions">
+                  <td colspan="10" class="text-center">
+                    <div class="spinner-border" role="status">
+                      <span class="sr-only">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="!loadingSessions && sessions.length === 0">
+                  <td colspan="10" class="text-center text-muted">
+                    {{ 'recent_activity.no_records_found' | translate }}
+                  </td>
+                </tr>
+                <tr *ngFor="let s of sessions">
+                  <td>
+                    <strong>{{ s.username }}</strong>
+                    <br>
+                    <small class="text-muted">{{ s.callingstationid }}</small>
+                  </td>
+                  <td>
+                    <span class="badge badge-info" *ngIf="s.tenant_name">
+                      {{ s.tenant_name }}
+                    </span>
+                    <span class="text-muted" *ngIf="!s.tenant_name">
+                      {{ 'recent_activity.not_assigned' | translate }}
+                    </span>
+                  </td>
+                  <td>
+                    <span class="badge" [class]="getStatusBadge(s)">
+                      {{ getStatusText(s) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span *ngIf="s.acctstarttime">{{ s.acctstarttime | date:'dd.MM.yy HH:mm' }}</span>
+                    <span *ngIf="!s.acctstarttime" class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <span *ngIf="s.acctstoptime">{{ s.acctstoptime | date:'dd.MM.yy HH:mm' }}</span>
+                    <span *ngIf="!s.acctstoptime" class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <span class="badge badge-info">{{ formatDuration(s.acctsessiontime) }}</span>
+                  </td>
+                  <td>
+                    <span class="text-success">{{ formatBytes(s.acctinputoctets) }}</span>
+                  </td>
+                  <td>
+                    <span class="text-primary">{{ formatBytes(s.acctoutputoctets) }}</span>
+                  </td>
+                  <td>
+                    <code>{{ s.framedipaddress || '-' }}</code>
+                  </td>
+                  <td>
+                    <small>{{ s.nasipaddress }}</small>
+                    <br>
+                    <small class="text-muted">{{ s.calledstationid }}</small>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <!-- No pagination for sessions - always shows latest 15 records -->
+      </div>
+
+      <!-- Users Card -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">{{ 'recent_activity.all_users' | translate }}</h3>
+          <div class="card-tools">
+            <div class="row">
+              <div class="col-md-6">
+                <div class="input-group input-group-sm" style="width: 200px;">
+                  <input type="text" class="form-control" [placeholder]="'recent_activity.search_user' | translate" 
+                         [(ngModel)]="usersSearch" (keyup.enter)="onUsersSearch()">
+                  <div class="input-group-append">
+                    <button class="btn btn-outline-secondary" type="button" (click)="onUsersSearch()">
+                      <i class="fas fa-search"></i>
+                    </button>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6" *ngIf="isSuperAdmin">
+                <div class="input-group input-group-sm" style="width: 200px;">
+                  <select class="form-control" [(ngModel)]="usersTenantFilter" (change)="onTenantFilterChange()">
+                    <option value="">{{ 'common.all_tenants' | translate }}</option>
+                    <option value="unassigned">{{ 'recent_activity.not_assigned' | translate }}</option>
+                    <option *ngFor="let tenant of tenants" [value]="tenant.id">
+                      {{ tenant.name }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="card-body">
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th style="width: 8%;">{{ 'recent_activity.id' | translate }}</th>
+                  <th style="width: 30%;">{{ 'recent_activity.user' | translate }}</th>
+                  <th style="width: 15%;">{{ 'recent_activity.tenant' | translate }}</th>
+                  <th style="width: 20%;">{{ 'recent_activity.registered_at' | translate }}</th>
+                  <th style="width: 27%;">{{ 'recent_activity.actions' | translate }}</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="loadingUsers">
+                  <td colspan="5" class="text-center">
+                    <div class="spinner-border" role="status">
+                      <span class="sr-only">Loading...</span>
+                    </div>
+                  </td>
+                </tr>
+                <tr *ngIf="!loadingUsers && users.length === 0">
+                  <td colspan="5" class="text-center text-muted">
+                    {{ 'recent_activity.no_records_found' | translate }}
+                  </td>
+                </tr>
+                <tr *ngFor="let u of users">
+                  <td>
+                    <span class="badge badge-secondary">#{{ u.id }}</span>
+                  </td>
+                  <td>
+                    <strong>{{ u.username }}</strong>
+                  </td>
+                  <td>
+                    <span class="badge badge-info" *ngIf="u.tenant && u.tenant.name">
+                      {{ u.tenant.name }}
+                    </span>
+                    <span class="text-muted" *ngIf="!u.tenant || !u.tenant.name">
+                      {{ 'recent_activity.not_assigned' | translate }}
+                    </span>
+                  </td>
+                  <td>
+                    <span *ngIf="u.regdate">{{ u.regdate | date:'dd.MM.yyyy HH:mm' }}</span>
+                    <span *ngIf="!u.regdate" class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <button class="btn btn-sm btn-outline-primary" (click)="openHistory(u.username)" [title]="'recent_activity.view_last_10_sessions' | translate">
+                      <i class="fas fa-history"></i> {{ 'recent_activity.history' | translate }}
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+        
+        <!-- Pagination -->
+        <div class="card-footer" *ngIf="Math.ceil(usersTotal / usersLimit) > 1">
+          <nav aria-label="Users pagination">
+            <ul class="pagination justify-content-center mb-0">
+              <li class="page-item" [class.disabled]="usersPage === 1">
+                <button class="page-link" (click)="onUsersPageChange(usersPage - 1)" [disabled]="usersPage === 1">Prev</button>
+              </li>
+              <li class="page-item" *ngFor="let page of [].constructor(Math.ceil(usersTotal / usersLimit)); let i = index" 
+                  [class.active]="usersPage === i + 1">
+                <button class="page-link" (click)="onUsersPageChange(i + 1)">{{ i + 1 }}</button>
+              </li>
+              <li class="page-item" [class.disabled]="usersPage * usersLimit >= usersTotal">
+                <button class="page-link" (click)="onUsersPageChange(usersPage + 1)" [disabled]="usersPage * usersLimit >= usersTotal">Next</button>
+              </li>
+            </ul>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+        <!-- Modal -->
+        <div class="modal fade" [class.show]="showHistoryModal" [style.display]="showHistoryModal ? 'block' : 'none'"
+             tabindex="-1" role="dialog" *ngIf="showHistoryModal">
+          <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">
+          <i class="fas fa-history"></i> {{ modalUsername }} - {{ 'recent_activity.last_10_sessions' | translate }}
+        </h4>
+        <button type="button" class="close" (click)="closeHistory()" [attr.aria-label]="'common.close' | translate">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+              <div class="modal-body">
+                <div *ngIf="loadingHistory" class="text-center">
+                  <div class="spinner-border" role="status">
+                    <span class="sr-only">{{ 'common.loading' | translate }}...</span>
+                  </div>
+                </div>
+                
+                <!-- Traffic Chart -->
+                <div *ngIf="!loadingHistory && historyItems.length > 0" class="mb-4">
+                  <div class="card">
+                    <div class="card-header">
+                      <h5 class="card-title mb-0">
+                        <i class="fas fa-chart-line"></i> {{ 'recent_activity.traffic_chart' | translate }}
+                      </h5>
+                    </div>
+                    <div class="card-body">
+                      <div style="height: 300px; position: relative;">
+                        <canvas #trafficChart></canvas>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- History Table -->
+                <div *ngIf="!loadingHistory" class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead>
+              <tr>
+                <th style="width: 15%;">{{ 'recent_activity.start' | translate }}</th>
+                <th style="width: 15%;">{{ 'recent_activity.end' | translate }}</th>
+                <th style="width: 10%;">{{ 'recent_activity.duration' | translate }}</th>
+                <th style="width: 12%;">{{ 'recent_activity.upload' | translate }}</th>
+                <th style="width: 12%;">{{ 'recent_activity.download' | translate }}</th>
+                <th style="width: 12%;">{{ 'recent_activity.ip' | translate }}</th>
+                <th style="width: 12%;">{{ 'recent_activity.nas' | translate }}</th>
+                <th style="width: 12%;">{{ 'recent_activity.status' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let h of historyItems">
+                <td>
+                  <span *ngIf="h.acctstarttime">{{ h.acctstarttime | date:'dd.MM.yy HH:mm' }}</span>
+                  <span *ngIf="!h.acctstarttime" class="text-muted">-</span>
+                </td>
+                <td>
+                  <span *ngIf="h.acctstoptime">{{ h.acctstoptime | date:'dd.MM.yy HH:mm' }}</span>
+                  <span *ngIf="!h.acctstoptime" class="text-muted">-</span>
+                </td>
+                <td>
+                  <span class="badge badge-info">{{ formatDuration(h.acctsessiontime) }}</span>
+                </td>
+                <td>
+                  <span class="text-success">{{ formatBytes(h.upload_octets) }}</span>
+                </td>
+                <td>
+                  <span class="text-primary">{{ formatBytes(h.download_octets) }}</span>
+                </td>
+                <td>
+                  <code>{{ h.framedipaddress || '-' }}</code>
+                </td>
+                <td>
+                  <small>{{ h.nasipaddress }}</small>
+                </td>
+                <td>
+                  <span class="badge" [class]="h.acctstoptime ? 'badge-success' : 'badge-warning'">
+                    {{ h.acctstoptime ? ('recent_activity.completed' | translate) : ('recent_activity.active' | translate) }}
+                  </span>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeHistory()">{{ 'common.close' | translate }}</button>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="modal-backdrop fade show" *ngIf="showHistoryModal"></div>
+
+

@@ -1,0 +1,452 @@
+<div class="content-wrapper">
+  <!-- Content Header -->
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1 class="m-0">Member Management</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="#">Home</a></li>
+            <li class="breadcrumb-item active">Member Management</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main content -->
+  <section class="content">
+    <div class="container-fluid">
+      
+      <!-- Filters and Actions -->
+      <div class="row mb-3">
+        <div class="col-md-8">
+          <div class="row">
+            <!-- Tenant Filter (Super Admin only) -->
+            <div class="col-md-4" *ngIf="isSuperAdmin">
+              <label class="form-label">Tenant Selection:</label>
+              <select class="form-control" [ngModel]="selectedTenantId" (ngModelChange)="onTenantChange($event)">
+                <option [value]="null">All Tenants</option>
+                <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
+              </select>
+            </div>
+            
+            <!-- Search -->
+            <div class="col-md-4">
+              <div class="input-group">
+                <input type="text" class="form-control" placeholder="Search members..." 
+                       [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+                <div class="input-group-append">
+                  <button class="btn btn-outline-secondary" type="button" (click)="onSearch()">
+                    <i class="fas fa-search"></i>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-4 text-right">
+          <button class="btn btn-primary mr-2" (click)="openAddMember()">
+            <i class="fas fa-plus"></i> Add Member
+          </button>
+          <button class="btn btn-success" (click)="openManageRoles()">
+            <i class="fas fa-user-tag"></i> Manage Roles
+          </button>
+        </div>
+      </div>
+
+      <!-- Members Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Members ({{ totalMembers }})</h3>
+        </div>
+        <div class="card-body">
+          <div *ngIf="loading" class="text-center py-4">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p>Loading members...</p>
+          </div>
+          
+          <div *ngIf="!loading" class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Phone</th>
+                  <th>Roles</th>
+                  <th>Status</th>
+                  <th>Last Login</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let member of members">
+                  <td>{{ member.username }}</td>
+                  <td>{{ member.name }} {{ member.lastname }}</td>
+                  <td>{{ member.email }}</td>
+                  <td>{{ member.phone || '-' }}</td>
+                  <td>
+                    <span class="badge badge-info mr-1" *ngFor="let role of member.roles">
+                      {{ role.display_name }}
+                    </span>
+                    <span *ngIf="!member.roles || member.roles.length === 0" class="text-muted">No roles</span>
+                  </td>
+                  <td>
+                    <span class="badge" [class]="getStatusClass(member.is_active)">
+                      {{ getStatusText(member.is_active) }}
+                    </span>
+                  </td>
+                  <td>{{ member.last_login ? formatDate(member.last_login) : 'Never' }}</td>
+                  <td>
+                    <button class="btn btn-sm btn-primary mr-1" (click)="openEditMember(member)" title="Edit Member">
+                      <i class="fas fa-edit"></i>
+                    </button>
+                    <button class="btn btn-sm btn-success mr-1" (click)="openAssignRoles(member)" title="Assign Roles">
+                      <i class="fas fa-user-tag"></i>
+                    </button>
+                    <button class="btn btn-sm btn-danger" (click)="deleteMember(member)" title="Delete Member">
+                      <i class="fas fa-trash"></i>
+                    </button>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="totalPages > 1" class="d-flex justify-content-between align-items-center mt-3">
+            <div>
+              <p class="mb-0">Showing {{ (currentPage - 1) * pageSize + 1 }} to 
+                {{ Math.min(currentPage * pageSize, totalMembers) }} of {{ totalMembers }} members</p>
+            </div>
+            <nav>
+              <ul class="pagination pagination-sm mb-0">
+                <li class="page-item" [class.disabled]="currentPage === 1">
+                  <a class="page-link" (click)="onPageChange(currentPage - 1)">Previous</a>
+                </li>
+                <li *ngFor="let page of [].constructor(totalPages); let i = index" 
+                    class="page-item" [class.active]="currentPage === i + 1">
+                  <a class="page-link" (click)="onPageChange(i + 1)">{{ i + 1 }}</a>
+                </li>
+                <li class="page-item" [class.disabled]="currentPage === totalPages">
+                  <a class="page-link" (click)="onPageChange(currentPage + 1)">Next</a>
+                </li>
+              </ul>
+            </nav>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Member Modal -->
+<div class="modal fade" [class.show]="showMemberModal" [style.display]="showMemberModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ isEditing ? 'Edit Member' : 'Add New Member' }}</h5>
+        <button type="button" class="close" (click)="closeMemberModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="memberForm">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Username *</label>
+                <input type="text" class="form-control" formControlName="username">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Password {{ isEditing ? '' : '*' }}</label>
+                <input type="password" class="form-control" formControlName="password">
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>First Name *</label>
+                <input type="text" class="form-control" formControlName="name">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Last Name *</label>
+                <input type="text" class="form-control" formControlName="lastname">
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Email *</label>
+                <input type="email" class="form-control" formControlName="email">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>Phone</label>
+                <input type="text" class="form-control" formControlName="phone">
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>TC Number</label>
+                <input type="text" class="form-control" formControlName="tc">
+              </div>
+            </div>
+            <div class="col-md-6" *ngIf="isSuperAdmin">
+              <div class="form-group">
+                <label>Tenant *</label>
+                <select class="form-control" formControlName="tenant_id">
+                  <option value="">Select Tenant</option>
+                  <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeMemberModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveMember()">
+          {{ isEditing ? 'Update' : 'Create' }} Member
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Role Modal -->
+<div class="modal fade" [class.show]="showRoleModal" [style.display]="showRoleModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ isEditingRole ? 'Edit Role' : 'Add New Role' }}</h5>
+        <button type="button" class="close" (click)="closeRoleModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="roleForm">
+          <div class="row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label>Role Name *</label>
+                <input type="text" class="form-control" formControlName="name">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label>Display Name *</label>
+                <input type="text" class="form-control" formControlName="display_name">
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label>Description</label>
+                <input type="text" class="form-control" formControlName="description">
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label>Permissions</label>
+            <div class="permissions-container">
+              <div *ngFor="let module of Object.keys(permissions)" class="permission-module mb-3">
+                <div class="module-header">
+                  <h6 class="mb-2">
+                    <input type="checkbox" 
+                           [checked]="isModuleFullySelected(module)"
+                           [indeterminate]="isModulePartiallySelected(module)"
+                           (change)="toggleModulePermissions(module)">
+                    <strong class="ml-2">{{ module.charAt(0).toUpperCase() + module.slice(1) }}</strong>
+                  </h6>
+                </div>
+                <div class="row">
+                  <div class="col-md-4" *ngFor="let permission of permissions[module]">
+                    <div class="form-check">
+                      <input type="checkbox" class="form-check-input" 
+                             [checked]="isPermissionSelected(permission.id)"
+                             (change)="togglePermission(permission.id)">
+                      <label class="form-check-label">
+                        {{ permission.display_name }}
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeRoleModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveRole()">
+          {{ isEditingRole ? 'Update' : 'Create' }} Role
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Role Assignment Modal -->
+<div class="modal fade" [class.show]="showRoleAssignmentModal" [style.display]="showRoleAssignmentModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Assign Roles to {{ currentMember?.username }}</h5>
+        <button type="button" class="close" (click)="closeRoleAssignmentModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div *ngIf="currentMember">
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <strong>Username:</strong> {{ currentMember.username }}
+            </div>
+            <div class="col-md-6">
+              <strong>Current Roles:</strong>
+              <div>
+                <span class="badge badge-info mr-1" *ngFor="let role of currentMember.roles">
+                  {{ role.display_name }}
+                </span>
+                <span *ngIf="!currentMember.roles || currentMember.roles.length === 0" class="text-muted">No roles assigned</span>
+              </div>
+            </div>
+          </div>
+          
+          <div class="form-group">
+            <label for="availableRoles">Available Roles:</label>
+            <div class="row">
+              <div class="col-md-6" *ngFor="let role of availableRoles">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox" 
+                         [id]="'role_' + role.id"
+                         [checked]="isRoleAssigned(role.id)"
+                         (change)="toggleRoleSelection(role.id)">
+                  <label class="form-check-label" [for]="'role_' + role.id">
+                    {{ role.display_name }}
+                    <small class="text-muted d-block">{{ role.description || 'No description' }}</small>
+                  </label>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div *ngIf="availableRoles.length === 0" class="alert alert-info">
+            No roles available for assignment.
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeRoleAssignmentModal()">Cancel</button>
+        <button type="button" class="btn btn-primary" (click)="saveRoleAssignments()" [disabled]="assigningRoles">
+          <i class="fas fa-spinner fa-spin" *ngIf="assigningRoles"></i>
+          {{ assigningRoles ? 'Assigning...' : 'Assign Roles' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Role Management Modal -->
+<div class="modal fade" [class.show]="showRoleManagementModal" [style.display]="showRoleManagementModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Role Management</h5>
+        <button type="button" class="close" (click)="closeRoleManagementModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+          <h6>Available Roles ({{ allRoles.length }})</h6>
+          <button class="btn btn-primary btn-sm" (click)="openAddRole()">
+            <i class="fas fa-plus"></i> Add New Role
+          </button>
+        </div>
+        
+        <div *ngIf="managingRoles" class="text-center py-4">
+          <i class="fas fa-spinner fa-spin fa-2x"></i>
+          <p>Loading roles...</p>
+        </div>
+        
+        <div *ngIf="!managingRoles" class="table-responsive">
+          <table class="table table-bordered table-striped">
+            <thead>
+              <tr>
+                <th>Role Name</th>
+                <th>Display Name</th>
+                <th>Description</th>
+                <th>Type</th>
+                <th>Permissions</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let role of allRoles">
+                <td>{{ role.name }}</td>
+                <td>{{ role.display_name }}</td>
+                <td>{{ role.description || '-' }}</td>
+                <td>
+                  <span class="badge" [class]="role.is_system_role ? 'badge-warning' : 'badge-info'">
+                    {{ role.is_system_role ? 'System Role' : 'Custom Role' }}
+                  </span>
+                </td>
+                <td>
+                  <span class="badge badge-secondary">{{ role.permissions?.length || 0 }} permissions</span>
+                </td>
+                <td>
+                  <button class="btn btn-sm btn-primary mr-1" (click)="editRole(role)" title="Edit Role">
+                    <i class="fas fa-edit"></i>
+                  </button>
+                  <button class="btn btn-sm btn-danger" 
+                          (click)="deleteRole(role)" 
+                          [disabled]="role.is_system_role"
+                          title="Delete Role">
+                    <i class="fas fa-trash"></i>
+                  </button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        
+        <div *ngIf="!managingRoles && allRoles.length === 0" class="text-center py-4">
+          <p class="text-muted">No roles found.</p>
+          <button class="btn btn-primary" (click)="openAddRole()">
+            <i class="fas fa-plus"></i> Add First Role
+          </button>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeRoleManagementModal()">Close</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="showMemberModal || showRoleModal || showRoleAssignmentModal || showRoleManagementModal" 
+     [style.display]="(showMemberModal || showRoleModal || showRoleAssignmentModal || showRoleManagementModal) ? 'block' : 'none'"></div>

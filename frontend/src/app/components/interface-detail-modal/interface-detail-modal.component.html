@@ -1,0 +1,204 @@
+<!-- Interface Detail Modal -->
+<div class="modal fade show" 
+     [class.show]="isVisible" 
+     [style.display]="isVisible ? 'block' : 'none'"
+     style="z-index: 10000000 !important; background-color: rgba(0,0,0,0.5);">
+  <div class="modal-dialog modal-lg" style="z-index: 10000001 !important;">
+    <div class="modal-content">
+      <!-- Modal Header -->
+      <div class="modal-header bg-primary text-white">
+        <h5 class="modal-title">
+          <i class="fas fa-network-wired me-2"></i>
+          Interface Details: {{ editedInterface?.name }}
+        </h5>
+        <button type="button" class="btn-close btn-close-white" (click)="onClose()"></button>
+      </div>
+
+      <!-- Modal Body -->
+      <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+        <!-- Loading State -->
+        <div *ngIf="!interfaceData || !editedInterface?.name" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <p class="mt-2 text-muted">Loading interface details...</p>
+        </div>
+
+        <!-- Interface Details Form -->
+        <form *ngIf="interfaceData && editedInterface?.name">
+          <!-- Basic Information -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary border-bottom pb-2">
+                <i class="fas fa-info-circle me-2"></i>
+                Basic Information
+              </h6>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="interface-name-input" class="form-label">Interface Name</label>
+              <input type="text" 
+                     class="form-control" 
+                     id="interface-name-input" 
+                     [value]="interfaceData?.name || 'N/A'"
+                     [disabled]="true"
+                     title="Interface name cannot be changed">
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="interface-type-select" class="form-label">Interface Type</label>
+              <select class="form-select" 
+                      id="interface-type-select" 
+                      [value]="interfaceData?.type || 'ether'"
+                      [(ngModel)]="editedInterface.type"
+                      [disabled]="true"
+                      title="Interface type cannot be changed">
+                <option *ngFor="let type of interfaceTypes" 
+                        [value]="type.value" 
+                        [selected]="type.value === (interfaceData?.type || editedInterface.type)">
+                  {{ type.label }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="interface-status-switch" class="form-label">Status</label>
+              <div class="form-check form-switch">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="interface-status-switch" 
+                       [checked]="interfaceData?.running === true || interfaceData?.running === 'true'"
+                       [(ngModel)]="editedInterface.running"
+                       [disabled]="true"
+                       title="Interface status is read-only">
+                <label class="form-check-label" for="interface-status-switch">
+                  {{ (interfaceData?.running === true || interfaceData?.running === 'true') ? 'Running' : 'Stopped' }}
+                </label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label for="interface-disabled-switch" class="form-label">Disabled</label>
+              <div class="form-check form-switch">
+                <input class="form-check-input" 
+                       type="checkbox" 
+                       id="interface-disabled-switch" 
+                       [checked]="interfaceData?.disabled === true || interfaceData?.disabled === 'true'"
+                       [(ngModel)]="editedInterface.disabled">
+                <label class="form-check-label" for="interface-disabled-switch">
+                  {{ (interfaceData?.disabled === true || interfaceData?.disabled === 'true') ? 'Disabled' : 'Enabled' }}
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label for="interfaceMtu" class="form-label">MTU</label>
+              <input type="number" 
+                     class="form-control" 
+                     id="interfaceMtu" 
+                     [(ngModel)]="editedInterface.mtu"
+                     min="64" 
+                     max="65535">
+            </div>
+            <div class="col-md-6">
+              <label for="interfaceMac" class="form-label">MAC Address</label>
+              <input type="text" 
+                     class="form-control" 
+                     id="interfaceMac" 
+                     [value]="interfaceData?.mac_address || interfaceData?.macAddress || 'N/A'"
+                     [disabled]="true"
+                     title="MAC address cannot be changed"
+                     placeholder="MAC address will be displayed here">
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <label for="interface-comment-textarea" class="form-label">Comment</label>
+              <textarea class="form-control" 
+                        id="interface-comment-textarea" 
+                        rows="3" 
+                        [value]="interfaceData?.comment || ''"
+                        [(ngModel)]="editedInterface.comment"
+                        placeholder="Enter interface comment..."></textarea>
+            </div>
+          </div>
+
+
+          <!-- Bridge Specific Settings -->
+          <div *ngIf="isBridge()" class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary border-bottom pb-2">
+                <i class="fas fa-link me-2"></i>
+                Bridge Settings
+              </h6>
+            </div>
+          </div>
+
+          <div *ngIf="isBridge()" class="row mb-3">
+            <div class="col-md-6">
+              <label for="bridgePorts" class="form-label">Bridge Ports</label>
+              <input type="text" 
+                     class="form-control" 
+                     id="bridgePorts" 
+                     [(ngModel)]="editedInterface.ports"
+                     placeholder="e.g., ether1,ether2">
+            </div>
+            <div class="col-md-6">
+              <label for="bridgeProtocol" class="form-label">Protocol</label>
+              <select class="form-select" id="bridgeProtocol" [(ngModel)]="editedInterface.protocol">
+                <option value="rstp">RSTP</option>
+                <option value="stp">STP</option>
+                <option value="mstp">MSTP</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Statistics (Read-only) -->
+          <div class="row mb-4">
+            <div class="col-12">
+              <h6 class="text-primary border-bottom pb-2">
+                <i class="fas fa-chart-bar me-2"></i>
+                Statistics (Read-only)
+              </h6>
+            </div>
+          </div>
+
+          <div class="row mb-3">
+            <div class="col-md-6">
+              <label class="form-label">RX Bytes</label>
+              <div class="form-control-plaintext">
+                {{ formatBytes(+((interfaceData?.rxBytes || interfaceData?.rx_byte || interfaceData?.['rx-byte'] || 0))) }}
+              </div>
+            </div>
+            <div class="col-md-6">
+              <label class="form-label">TX Bytes</label>
+              <div class="form-control-plaintext">
+                {{ formatBytes(+((interfaceData?.txBytes || interfaceData?.tx_byte || interfaceData?.['tx-byte'] || 0))) }}
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="onCancel()">
+          <i class="fas fa-times me-2"></i>
+          Cancel
+        </button>
+        <button type="button" class="btn btn-primary" (click)="onSave()">
+          <i class="fas fa-save me-2"></i>
+          Save Changes
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

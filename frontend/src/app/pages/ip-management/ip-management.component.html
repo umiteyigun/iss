@@ -1,0 +1,575 @@
+<div class="content-wrapper">
+  <section class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1>{{ 'ip_management.title' | translate }}</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a routerLink="/dashboard">{{ 'common.home' | translate }}</a></li>
+            <li class="breadcrumb-item active">{{ 'ip_management.title' | translate }}</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="content">
+    <div class="container-fluid">
+      <!-- Stats Cards -->
+      <!-- IP Pool Stats -->
+      <div *ngIf="activeTab === 'pools'" class="row mb-3">
+        <div class="col-xl-4 col-md-4 col-sm-6 mb-3">
+          <div class="card stats-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stats-icon bg-primary">
+                  <i class="fa fa-server"></i>
+                </div>
+                <div class="stats-content">
+                  <h6 class="stats-title">{{ 'ip_management.total_ip_pools' | translate }}</h6>
+                  <h3 class="stats-value">{{ ipPoolStats.total }}</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-xl-4 col-md-4 col-sm-6 mb-3">
+          <div class="card stats-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stats-icon bg-success">
+                  <i class="fa fa-check-circle"></i>
+                </div>
+                <div class="stats-content">
+                  <h6 class="stats-title">{{ 'ip_management.available' | translate }}</h6>
+                  <h3 class="stats-value">{{ ipPoolStats.available }}</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-xl-4 col-md-4 col-sm-6 mb-3">
+          <div class="card stats-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stats-icon bg-danger">
+                  <i class="fa fa-times-circle"></i>
+                </div>
+                <div class="stats-content">
+                  <h6 class="stats-title">{{ 'ip_management.in_use' | translate }}</h6>
+                  <h3 class="stats-value">{{ ipPoolStats.inUse }}</h3>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Metro IP Stats -->
+      <div *ngIf="activeTab === 'metroips'" class="row mb-4">
+        <!-- Total Metro IPs -->
+        <div class="col-xl-4 col-md-6 mb-3">
+          <div class="card stats-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stats-icon bg-primary">
+                  <i class="fa fa-network-wired"></i>
+                </div>
+                <div class="stats-content">
+                  <h6 class="stats-title">{{ 'ip_management.total_metro_ips' | translate }}</h6>
+                  <h3 class="stats-value">{{ metroIpStats.total }}</h3>
+                  <div class="stats-details">
+                    <small class="text-success">
+                      <i class="fa fa-check-circle"></i> {{ metroIpStats.available }} {{ 'ip_management.available' | translate }}
+                    </small>
+                    <small class="text-danger ml-2">
+                      <i class="fa fa-times-circle"></i> {{ metroIpStats.inUse }} {{ 'ip_management.in_use' | translate }}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Static IPs -->
+        <div class="col-xl-4 col-md-6 mb-3">
+          <div class="card stats-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stats-icon bg-warning">
+                  <i class="fa fa-lock"></i>
+                </div>
+                <div class="stats-content">
+                  <h6 class="stats-title">{{ 'ip_management.static_ips' | translate }}</h6>
+                  <h3 class="stats-value">{{ metroIpStats.static }}</h3>
+                  <div class="stats-details">
+                    <small class="text-success">
+                      <i class="fa fa-check"></i> {{ metroIpStats.staticAvailable }} {{ 'ip_management.available' | translate }}
+                    </small>
+                    <small class="text-danger ml-2">
+                      <i class="fa fa-times"></i> {{ metroIpStats.staticInUse }} {{ 'ip_management.in_use' | translate }}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Shared IPs -->
+        <div class="col-xl-4 col-md-6 mb-3">
+          <div class="card stats-card">
+            <div class="card-body">
+              <div class="d-flex align-items-center">
+                <div class="stats-icon bg-secondary">
+                  <i class="fa fa-share-alt"></i>
+                </div>
+                <div class="stats-content">
+                  <h6 class="stats-title">{{ 'ip_management.shared_ips' | translate }}</h6>
+                  <h3 class="stats-value">{{ metroIpStats.shared }}</h3>
+                  <div class="stats-details">
+                    <small class="text-success">
+                      <i class="fa fa-check"></i> {{ metroIpStats.sharedAvailable }} {{ 'ip_management.available' | translate }}
+                    </small>
+                    <small class="text-danger ml-2">
+                      <i class="fa fa-times"></i> {{ metroIpStats.sharedInUse }} {{ 'ip_management.in_use' | translate }}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+      </div>
+
+      <!-- Search and Filter Section -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="input-group">
+            <input type="text" class="form-control" [placeholder]="'ip_management.search' | translate" 
+                   [(ngModel)]="searchTerm" (keyup.enter)="onSearch()">
+            <div class="input-group-append">
+              <button class="btn btn-outline-secondary" type="button" (click)="onSearch()">
+                <i class="fas fa-search"></i>
+              </button>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="float-right">
+            <button class="btn btn-primary mr-2" (click)="openAddIpPoolModal()" *ngIf="activeTab === 'pools'">
+              <i class="fas fa-plus"></i> {{ 'ip_management.add_ip_pool' | translate }}
+            </button>
+            <button class="btn btn-primary mr-2" (click)="openAddMetroIpModal()" *ngIf="activeTab === 'metroips'">
+              <i class="fas fa-plus"></i> {{ 'ip_management.add_metro_ip' | translate }}
+            </button>
+            <select class="form-control" style="width: auto; display: inline-block;" 
+                    [value]="selectedTenantId" (change)="onTenantChange($any($event.target).value)"
+                    *ngIf="isSuperAdmin">
+              <option value="">{{ 'common.all_tenants' | translate }}</option>
+              <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Metro IP Filter Section -->
+      <div class="row mb-3" *ngIf="activeTab === 'metroips'">
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header">
+              <h6 class="card-title mb-0">{{ 'ip_management.metro_ip_filters' | translate }}</h6>
+            </div>
+            <div class="card-body">
+              <div class="row">
+                <div class="col-md-3">
+                  <select class="form-control" [(ngModel)]="metroIpFilter" (change)="onMetroIpFilterChange()">
+                    <option value="">{{ 'ip_management.all_metro_ips' | translate }}</option>
+                    <option value="available">{{ 'ip_management.available' | translate }}</option>
+                    <option value="in_use">{{ 'ip_management.in_use' | translate }}</option>
+                    <option value="static">{{ 'ip_management.static_ip' | translate }}</option>
+                    <option value="shared">{{ 'ip_management.shared_ip' | translate }}</option>
+                  </select>
+                </div>
+                <div class="col-md-3">
+                  <input type="text" class="form-control" [placeholder]="'ip_management.ip_address_filter' | translate" 
+                         [(ngModel)]="ipAddressFilter" (keyup.enter)="onSearch()">
+                </div>
+                <div class="col-md-3">
+                  <input type="text" class="form-control" [placeholder]="'ip_management.nas_name_filter' | translate" 
+                         [(ngModel)]="nasNameFilter" (keyup.enter)="onSearch()">
+                </div>
+                <div class="col-md-3">
+                  <button class="btn btn-outline-secondary" (click)="clearMetroIpFilters()">
+                    <i class="fas fa-times"></i> {{ 'ip_management.clear_filters' | translate }}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tabs -->
+      <div class="card">
+        <div class="card-header">
+          <ul class="nav nav-tabs card-header-tabs">
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'pools'" 
+                 (click)="onTabChange('pools')" href="javascript:void(0)">
+                <i class="fas fa-network-wired"></i> {{ 'ip_management.ip_pools' | translate }}
+              </a>
+            </li>
+            <li class="nav-item">
+              <a class="nav-link" [class.active]="activeTab === 'metroips'" 
+                 (click)="onTabChange('metroips')" href="javascript:void(0)">
+                <i class="fas fa-server"></i> {{ 'ip_management.metro_ips' | translate }}
+              </a>
+            </li>
+          </ul>
+        </div>
+        
+        <div class="card-body">
+          <!-- Loading State -->
+          <div *ngIf="loading" class="text-center py-4">
+            <i class="fas fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">{{ 'ip_management.loading' | translate }}</p>
+          </div>
+
+          <!-- IP Pools Tab -->
+          <div *ngIf="!loading && activeTab === 'pools'">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
+                <thead class="thead-dark">
+                  <tr>
+                    <th style="width: 60px;">{{ 'ip_management.id' | translate }}</th>
+                    <th style="width: 120px;">{{ 'ip_management.nas_name' | translate }}</th>
+                    <th style="width: 120px;">{{ 'ip_management.frame_ip' | translate }}</th>
+                    <th style="width: 120px;">{{ 'ip_management.nas_ip' | translate }}</th>
+                    <th style="width: 130px;">{{ 'ip_management.called_station_id' | translate }}</th>
+                    <th style="width: 130px;">{{ 'ip_management.calling_station_id' | translate }}</th>
+                    <th style="width: 150px;">{{ 'ip_management.username' | translate }}</th>
+                    <th style="width: 100px;">{{ 'ip_management.pool_key' | translate }}</th>
+                    <th style="width: 100px;">{{ 'ip_management.port' | translate }}</th>
+                    <th style="width: 140px;">{{ 'ip_management.expiry_time' | translate }}</th>
+                    <th style="width: 80px;">{{ 'ip_management.status' | translate }}</th>
+                    <th style="width: 60px;">-</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let pool of ipPools">
+                    <td>{{ pool.id }}</td>
+                    <td><strong>{{ pool.nasname || '-' }}</strong></td>
+                    <td>{{ pool.framedipaddress || '-' }}</td>
+                    <td>{{ pool.nasipaddress || '-' }}</td>
+                    <td>{{ pool.calledstationid || '-' }}</td>
+                    <td>{{ pool.callingstationid || '-' }}</td>
+                    <td>{{ pool.username || '-' }}</td>
+                    <td>{{ pool.pool_key || '-' }}</td>
+                    <td>{{ pool.port || '-' }}</td>
+                    <td>{{ formatDateTime(pool.expiry_time) }}</td>
+                    <td>
+                      <span [class]="getStatusBadgeClass(pool)">
+                        {{ getStatusText(pool) }}
+                      </span>
+                    </td>
+                    <td>
+                      <span class="text-muted">-</span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="ipPools.length === 0">
+                    <td colspan="12" class="text-center text-muted py-4">
+                      {{ 'ip_management.no_ip_pools_found' | translate }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Metro IPs Tab -->
+          <div *ngIf="!loading && activeTab === 'metroips'">
+            <div class="table-responsive">
+              <table class="table table-striped table-hover">
+                <thead class="thead-dark">
+            <tr>
+              <th style="width: 60px;">{{ 'ip_management.id' | translate }}</th>
+              <th style="width: 150px;">{{ 'ip_management.nas_name' | translate }}</th>
+              <th style="width: 150px;">{{ 'ip_management.ip_address' | translate }}</th>
+              <th style="width: 120px;">{{ 'ip_management.ports' | translate }}</th>
+              <th style="width: 100px;">{{ 'ip_management.ip_type' | translate }}</th>
+              <th style="width: 200px;">{{ 'ip_management.user' | translate }}</th>
+              <th style="width: 100px;">{{ 'ip_management.status' | translate }}</th>
+              <th style="width: 80px;">{{ 'ip_management.tenant_id' | translate }}</th>
+              <th style="width: 60px;">-</th>
+            </tr>
+                </thead>
+                <tbody>
+                  <tr *ngFor="let metroip of metroIPs">
+                    <td>{{ metroip.id }}</td>
+                    <td><strong>{{ metroip.nasname || '-' }}</strong></td>
+                    <td>{{ metroip.ipaddress || '-' }}</td>
+                    <td>{{ metroip.ports || '-' }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="metroip.ip_type === 0 ? 'badge-info' : 'badge-warning'">
+                        {{ metroip.ip_type === 0 ? ('ip_management.static' | translate) : ('ip_management.shared' | translate) }}
+                      </span>
+                    </td>
+                    <td>{{ metroip.user || '-' }}</td>
+                    <td>
+                      <span class="badge" [ngClass]="getMetroIpStatusBadgeClass(metroip)">
+                        {{ getMetroIpStatusText(metroip) }}
+                      </span>
+                    </td>
+                    <td>{{ metroip.tenant_id || '-' }}</td>
+                    <td>
+                      <span class="text-muted">-</span>
+                    </td>
+                  </tr>
+                  <tr *ngIf="metroIPs.length === 0">
+                    <td colspan="9" class="text-center text-muted py-4">
+                      {{ 'ip_management.no_metro_ips_found' | translate }}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="!loading && totalPages > 1" class="row mt-3">
+            <div class="col-md-6">
+              <p class="text-muted">
+                Showing {{ ((currentPage - 1) * pageSize) + 1 }} to 
+                {{ getMin(currentPage * pageSize, totalPools) }} of {{ totalPools }} entries
+              </p>
+            </div>
+            <div class="col-md-6">
+              <nav aria-label="Page navigation">
+                <ul class="pagination justify-content-end">
+                  <li class="page-item" [class.disabled]="currentPage === 1">
+                    <a class="page-link" href="javascript:void(0)" 
+                       (click)="onPageChange(currentPage - 1)">
+                      <i class="fas fa-chevron-left"></i>
+                    </a>
+                  </li>
+                  <li *ngFor="let page of getPageNumbers()" class="page-item" 
+                      [class.active]="page === currentPage">
+                    <a class="page-link" href="javascript:void(0)" 
+                       (click)="onPageChange(page)">{{ page }}</a>
+                  </li>
+                  <li class="page-item" [class.disabled]="currentPage === totalPages">
+                    <a class="page-link" href="javascript:void(0)" 
+                       (click)="onPageChange(currentPage + 1)">
+                      <i class="fas fa-chevron-right"></i>
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Add IP Pool Modal -->
+<div class="modal fade" [class.show]="showIpPoolModal" [style.display]="showIpPoolModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ 'ip_management.add_ip_pool' | translate }}</h5>
+        <button type="button" class="close" (click)="closeIpPoolModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="ipPoolForm">
+          <div class="row">
+            <div class="col-md-12">
+              <div class="form-group">
+                <label>{{ 'ip_management.nas_device' | translate }} *</label>
+                <select class="form-control" formControlName="nas_id" (change)="calculateIpRange()">
+                  <option value="">{{ 'ip_management.select_nas_device' | translate }}</option>
+                  <option *ngFor="let nas of nasDevices" [value]="nas.id">
+                    {{ nas.shortname }} ({{ nas.nasname }})
+                  </option>
+                </select>
+                <small class="form-text text-muted">{{ 'ip_management.pool_name_auto_set' | translate }}</small>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>{{ 'ip_management.base_ip_address' | translate }} *</label>
+                <input type="text" class="form-control" formControlName="base_ip" 
+                       placeholder="e.g., 10.10.51.1" (input)="calculateIpRange()">
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>{{ 'ip_management.subnet_mask' | translate }} *</label>
+                <select class="form-control" formControlName="subnet_mask" (change)="calculateIpRange()">
+                  <option value="">{{ 'ip_management.select_mask' | translate }}</option>
+                  <option value="24">/24 (255.255.255.0) - 254 IPs</option>
+                  <option value="25">/25 (255.255.255.128) - 126 IPs</option>
+                  <option value="26">/26 (255.255.255.192) - 62 IPs</option>
+                  <option value="27">/27 (255.255.255.224) - 30 IPs</option>
+                  <option value="28">/28 (255.255.255.240) - 14 IPs</option>
+                  <option value="29">/29 (255.255.255.248) - 6 IPs</option>
+                  <option value="30">/30 (255.255.255.252) - 2 IPs</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row" *ngIf="isSuperAdmin">
+            <div class="col-md-12">
+              <div class="form-group">
+                <label>{{ 'ip_management.tenant' | translate }} *</label>
+                <select class="form-control" formControlName="tenant_id" (change)="calculateIpRange()">
+                  <option value="">{{ 'ip_management.select_tenant' | translate }}</option>
+                  <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Preview Section -->
+          <div class="row" *ngIf="ipPreview.length > 0">
+            <div class="col-md-12">
+              <div class="form-group">
+                <label>{{ 'ip_management.ip_preview' | translate }} ({{ ipPreview.length }} {{ 'ip_management.ips_will_be_created' | translate }}):</label>
+                <div class="preview-box">
+                  <div class="preview-item" *ngFor="let ip of ipPreview.slice(0, 10)">
+                    {{ ip.framedipaddress }} {{ ip.port ? '(' + ip.port + ')' : '' }}
+                  </div>
+                  <div *ngIf="ipPreview.length > 10" class="text-muted">
+                    ... {{ 'ip_management.and' | translate }} {{ ipPreview.length - 10 }} {{ 'ip_management.more_ips' | translate }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeIpPoolModal()">{{ 'common.cancel' | translate }}</button>
+        <button type="button" class="btn btn-primary" (click)="saveIpPool()" 
+                [disabled]="!ipPoolForm.valid || ipPreview.length === 0">
+          {{ 'common.create' | translate }} {{ ipPreview.length }} {{ 'ip_management.ip_pool' | translate }}{{ ipPreview.length !== 1 ? 's' : '' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Add Metro IP Modal -->
+<div class="modal fade" [class.show]="showMetroIpModal" [style.display]="showMetroIpModal ? 'block' : 'none'" 
+     tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ 'ip_management.add_metro_ip' | translate }}</h5>
+        <button type="button" class="close" (click)="closeMetroIpModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form [formGroup]="metroIpForm">
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>{{ 'ip_management.nas_device' | translate }} *</label>
+                <select class="form-control" formControlName="nas_id" (change)="calculateMetroIpRange()">
+                  <option value="">{{ 'ip_management.select_nas_device' | translate }}</option>
+                  <option *ngFor="let nas of nasDevices" [value]="nas.id">
+                    {{ nas.shortname }} ({{ nas.nasname }})
+                  </option>
+                </select>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>{{ 'ip_management.ip_address_subnet' | translate }} *</label>
+                <input type="text" class="form-control" formControlName="ipaddress" 
+                       placeholder="e.g., 12.155.155.24/27" (input)="calculateMetroIpRange()">
+                <small class="form-text text-muted">{{ 'ip_management.format_ip_subnet' | translate }}</small>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>{{ 'ip_management.ip_type' | translate }} *</label>
+                <select class="form-control" formControlName="ip_type" (change)="onIpTypeChange()">
+                  <option value="">{{ 'ip_management.select_ip_type' | translate }}</option>
+                  <option value="0">{{ 'ip_management.static_ip_single_client' | translate }}</option>
+                  <option value="1">{{ 'ip_management.shared_ip_multiple_clients' | translate }}</option>
+                </select>
+                <small class="form-text text-muted">{{ 'ip_management.static_shared_port_info' | translate }}</small>
+              </div>
+            </div>
+            <div class="col-md-6" *ngIf="metroIpForm.get('ip_type')?.value === '1'">
+              <div class="form-group">
+                <label>{{ 'ip_management.clients_per_ip' | translate }} *</label>
+                <select class="form-control" formControlName="client_count" (change)="calculateMetroIpRange()">
+                  <option value="">{{ 'ip_management.select_clients_per_ip' | translate }}</option>
+                  <option *ngFor="let count of getSharedClientCountOptions()" [value]="count">{{ count }} {{ 'ip_management.clients_per_ip' | translate }}</option>
+                </select>
+                <small class="form-text text-muted">{{ 'ip_management.each_ip_divided_info' | translate }}</small>
+              </div>
+            </div>
+          </div>
+          
+          <div class="row" *ngIf="isSuperAdmin">
+            <div class="col-md-12">
+              <div class="form-group">
+                <label>{{ 'ip_management.tenant' | translate }} *</label>
+                <select class="form-control" formControlName="tenant_id" (change)="calculateMetroIpRange()">
+                  <option value="">{{ 'ip_management.select_tenant' | translate }}</option>
+                  <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
+                </select>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Metro IP Preview Section -->
+          <div class="row" *ngIf="metroIpPreview.length > 0">
+            <div class="col-md-12">
+              <div class="form-group">
+                <label>{{ 'ip_management.metro_ip_preview' | translate }} ({{ metroIpPreview.length }} {{ 'ip_management.clients_will_be_created' | translate }}):</label>
+                <div class="preview-box">
+                  <div class="preview-item" *ngFor="let metro of metroIpPreview.slice(0, 10)">
+                    <strong>{{ metro.nasname }}</strong> - {{ metro.ipaddress }} - {{ 'ip_management.ports' | translate }}: {{ metro.ports }} - {{ 'ip_management.type' | translate }}: {{ metro.ip_type === 0 ? ('ip_management.static' | translate) : ('ip_management.shared' | translate) }}
+                  </div>
+                  <div *ngIf="metroIpPreview.length > 10" class="text-muted">
+                    ... {{ 'ip_management.and' | translate }} {{ metroIpPreview.length - 10 }} {{ 'ip_management.more_clients' | translate }}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeMetroIpModal()">{{ 'common.cancel' | translate }}</button>
+        <button type="button" class="btn btn-primary" (click)="saveMetroIp()" 
+                [disabled]="!metroIpForm.valid || metroIpPreview.length === 0">
+          {{ 'common.create' | translate }} {{ metroIpPreview.length }} {{ 'ip_management.metro_ip' | translate }}{{ metroIpPreview.length !== 1 ? 's' : '' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>

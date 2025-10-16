@@ -1,0 +1,233 @@
+<!-- ArchitectUI Layout Structure -->
+<div class="app-container">
+  <!-- Top Navigation -->
+  <nav class="top-nav">
+    <div class="top-nav-content">
+      <!-- Top Navigation Menu -->
+      <div class="top-nav-menu">
+        <!-- Sidebar Toggle -->
+        <button class="sidebar-toggle" (click)="toggleSidebar()">
+          <i class="fa fa-bars"></i>
+        </button>
+        
+        <!-- Language Selector -->
+        <div class="language-selector-container">
+          <app-language-selector></app-language-selector>
+        </div>
+        
+        <!-- User Profile -->
+        <div class="user-profile-dropdown">
+          <button class="user-profile-btn" (click)="toggleUserProfileMenu()">
+            <div class="user-avatar-small"></div>
+                 <span class="user-name">{{ currentUser?.username || 'User' }}</span>
+            <i class="fa fa-chevron-down"></i>
+          </button>
+          <div class="user-profile-menu" [class.show]="userProfileMenuOpen">
+            <div class="user-profile-header">
+              <div class="user-avatar-large"></div>
+              <div class="user-info">
+                   <h4>{{ currentUser?.username || 'User' }}</h4>
+                   <p>{{ currentUser?.role || 'Member' }}</p>
+              </div>
+            </div>
+            <div class="user-profile-menu-items">
+              <a href="#" class="menu-item">
+                <i class="fa fa-user"></i>
+                <span>{{ 'common.profile' | translate }}</span>
+              </a>
+              <a href="#" class="menu-item">
+                <i class="fa fa-cog"></i>
+                <span>{{ 'common.settings' | translate }}</span>
+              </a>
+              <a href="#" class="menu-item">
+                <i class="fa fa-question-circle"></i>
+                <span>{{ 'common.help' | translate }}</span>
+              </a>
+              <div class="menu-divider"></div>
+              <a href="#" class="menu-item logout" (click)="logout()">
+                <i class="fa fa-sign-out"></i>
+                <span>{{ 'common.logout' | translate }}</span>
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+  
+  <!-- Sidebar -->
+  <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
+    <div class="sidebar-content">
+      <!-- Sidebar User Panel -->
+      <div class="sidebar-user-panel">
+        <div class="sidebar-user-avatar"></div>
+        <div class="sidebar-user-info">
+             <h4>{{ currentUser?.username || 'User' }}</h4>
+             <p><i class="fa fa-circle text-success"></i> {{ 'common.online' | translate }}</p>
+        </div>
+      </div>
+      
+      <!-- Sidebar Navigation -->
+      <nav class="sidebar-nav">
+        <ul class="nav-list">
+          <!-- Dashboard -->
+          <li class="nav-item" *ngIf="authService.canViewDashboard()">
+            <a routerLink="/dashboard" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'common.dashboard' | translate">
+              <i class="fa fa-dashboard"></i>
+              <span>{{ 'common.dashboard' | translate }}</span>
+            </a>
+          </li>
+          
+          <!-- Network Management -->
+          <li class="nav-section" *ngIf="authService.canViewNAS()">
+            <span class="nav-section-title">{{ 'navigation.network_management' | translate }}</span>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewNAS()">
+            <a routerLink="/nas" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.nas_management' | translate">
+              <i class="fa fa-server"></i>
+              <span>{{ 'navigation.nas_management' | translate }}</span>
+              <span class="nav-badge">8</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewUsers()">
+            <a routerLink="/ip" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.ip_management' | translate">
+              <i class="fa fa-network-wired"></i>
+              <span>{{ 'navigation.ip_management' | translate }}</span>
+              <span class="nav-badge">45</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewUsers()">
+            <a routerLink="/recent-activity" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.recent_activity' | translate">
+              <i class="fa fa-history"></i>
+              <span>{{ 'navigation.recent_activity' | translate }}</span>
+            </a>
+          </li>
+          
+          <!-- User Management -->
+          <li class="nav-section" *ngIf="authService.canViewTenants() || authService.canViewUsers() || authService.canViewMembers()">
+            <span class="nav-section-title">{{ 'navigation.user_management' | translate }}</span>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewTenants()">
+            <a routerLink="/tenants" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.tenant_management' | translate">
+              <i class="fa fa-building"></i>
+              <span>{{ 'navigation.tenant_management' | translate }}</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewUsers()">
+            <a routerLink="/users" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'common.users' | translate">
+              <i class="fa fa-users"></i>
+              <span>{{ 'common.users' | translate }}</span>
+              <span class="nav-badge">156</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewMembers()">
+            <a routerLink="/members" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.member_management' | translate">
+              <i class="fa fa-user-secret"></i>
+              <span>{{ 'navigation.member_management' | translate }}</span>
+              <span class="nav-badge">24</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewUsers()">
+            <a routerLink="/packages" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.package_management' | translate">
+              <i class="fa fa-box"></i>
+              <span>{{ 'common.packages' | translate }}</span>
+              <span class="nav-badge">12</span>
+            </a>
+          </li>
+          
+          <!-- System -->
+          <li class="nav-section" *ngIf="authService.canViewLogs() || authService.canViewSettings()">
+            <span class="nav-section-title">{{ 'navigation.system' | translate }}</span>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewLogs()">
+            <a routerLink="/logs" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.system_logs' | translate">
+              <i class="fa fa-file-text"></i>
+              <span>{{ 'navigation.system_logs' | translate }}</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.canViewSettings()">
+            <a routerLink="/settings" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'common.settings' | translate">
+              <i class="fa fa-cog"></i>
+              <span>{{ 'common.settings' | translate }}</span>
+            </a>
+          </li>
+          
+          <!-- Super Admin Section -->
+          <li class="nav-section" *ngIf="authService.isSuperAdmin()">
+            <span class="nav-section-title">{{ 'navigation.administration' | translate }}</span>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.isSuperAdmin()">
+            <a routerLink="/tenants" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.tenant_management' | translate">
+              <i class="fa fa-building"></i>
+              <span>{{ 'navigation.tenant_management' | translate }}</span>
+              <span class="nav-badge">5</span>
+            </a>
+          </li>
+          
+          <li class="nav-item" *ngIf="authService.isSuperAdmin()">
+            <a routerLink="/create-tenant" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.create_tenant' | translate">
+              <i class="fa fa-plus"></i>
+              <span>{{ 'navigation.create_tenant' | translate }}</span>
+            </a>
+          </li>
+          
+          <!-- Account -->
+          <li class="nav-section">
+            <span class="nav-section-title">{{ 'navigation.account' | translate }}</span>
+          </li>
+          
+          <li class="nav-item">
+            <a href="#" class="nav-link" [attr.data-tooltip]="'navigation.my_profile' | translate">
+              <i class="fa fa-user"></i>
+              <span>{{ 'navigation.my_profile' | translate }}</span>
+            </a>
+          </li>
+          
+          <li class="nav-item">
+            <a href="#" class="nav-link" [attr.data-tooltip]="'navigation.account_settings' | translate">
+              <i class="fa fa-cog"></i>
+              <span>{{ 'navigation.account_settings' | translate }}</span>
+            </a>
+          </li>
+          
+        </ul>
+      </nav>
+    </div>
+  </aside>
+
+  <!-- Main Content Area -->
+  <div class="main-content">
+    <!-- Content Area -->
+    <main class="content-area">
+      <!-- Breadcrumb -->
+      <div class="breadcrumb-container">
+        <nav class="breadcrumb-nav">
+          <ol class="breadcrumb">
+            <li class="breadcrumb-item">
+              <a routerLink="/dashboard">
+                <i class="fa fa-home"></i>
+                {{ 'common.home' | translate }}
+              </a>
+            </li>
+            <!-- Dynamic breadcrumb will be added here -->
+          </ol>
+        </nav>
+      </div>
+      
+      <!-- Page Content -->
+      <div class="page-content">
+        <router-outlet></router-outlet>
+      </div>
+    </main>
+  </div>
+</div>

@@ -1,0 +1,242 @@
+<div class="content-wrapper">
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1 class="m-0">Tenant Management</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="#">Home</a></li>
+            <li class="breadcrumb-item active">Tenant Management</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="content">
+    <div class="container-fluid">
+      <!-- Error Alert -->
+      <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+        <i class="icon fas fa-ban"></i>
+        {{ error }}
+        <button type="button" class="close" (click)="error = null" aria-label="Close">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+
+      <!-- Filters and Actions -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Tenants</h3>
+          <div class="card-tools">
+            <button type="button" class="btn btn-primary btn-sm" (click)="createTenant()">
+              <i class="fas fa-plus"></i> New Tenant
+            </button>
+          </div>
+        </div>
+        
+        <div class="card-body">
+          <!-- Search and Filters -->
+          <div class="row mb-3">
+            <div class="col-md-4">
+              <div class="input-group">
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  placeholder="Search tenants..."
+                  [(ngModel)]="searchTerm"
+                  (input)="onSearchChange()"
+                >
+                <div class="input-group-append">
+                  <span class="input-group-text">
+                    <i class="fas fa-search"></i>
+                  </span>
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-3">
+              <select 
+                class="form-control" 
+                [(ngModel)]="statusFilter"
+                (change)="onStatusFilterChange()"
+              >
+                <option value="">All Statuses</option>
+                <option *ngFor="let status of statusOptions" [value]="status.value">
+                  {{ status.label }}
+                </option>
+              </select>
+            </div>
+            
+            <div class="col-md-2">
+              <select 
+                class="form-control" 
+                [(ngModel)]="itemsPerPage"
+                (change)="onItemsPerPageChange()"
+              >
+                <option value="10">10 per page</option>
+                <option value="25">25 per page</option>
+                <option value="50">50 per page</option>
+                <option value="100">100 per page</option>
+              </select>
+            </div>
+            
+            <div class="col-md-3 text-right">
+              <span class="text-muted">
+                Showing {{ (currentPage - 1) * itemsPerPage + 1 }} to 
+                {{ Math.min(currentPage * itemsPerPage, totalItems) }} of 
+                {{ totalItems }} entries
+              </span>
+            </div>
+          </div>
+
+          <!-- Loading Spinner -->
+          <div *ngIf="loading" class="text-center py-4">
+            <div class="spinner-border text-primary" role="status">
+              <span class="sr-only">Loading...</span>
+            </div>
+            <p class="mt-2">Loading tenants...</p>
+          </div>
+
+          <!-- Tenants Table -->
+          <div *ngIf="!loading" class="table-responsive">
+            <table class="table table-striped table-hover">
+              <thead class="thead-dark">
+                <tr>
+                  <th *ngFor="let column of columns" 
+                      [class.sortable]="column.sortable"
+                      (click)="column.sortable ? onSort(column.key) : null"
+                      [style.cursor]="column.sortable ? 'pointer' : 'default'">
+                    {{ column.label }}
+                    <i *ngIf="column.sortable" 
+                       class="fas ml-1" 
+                       [ngClass]="getSortIcon(column.key)"></i>
+                  </th>
+                  <th width="120">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let tenant of tenants; trackBy: trackByTenantId">
+                  <td>
+                    <strong>{{ tenant.name }}</strong>
+                  </td>
+                  <td>
+                    <span *ngIf="tenant.subdomain" class="badge badge-info">
+                      {{ tenant.subdomain }}
+                    </span>
+                    <span *ngIf="!tenant.subdomain" class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <span class="badge" [ngClass]="getStatusBadgeClass(tenant.status)">
+                      {{ getStatusLabel(tenant.status) }}
+                    </span>
+                  </td>
+                  <td>
+                    <span *ngIf="tenant.contact_email">{{ tenant.contact_email }}</span>
+                    <span *ngIf="!tenant.contact_email" class="text-muted">-</span>
+                  </td>
+                  <td>
+                    <span *ngIf="tenant.max_users">{{ tenant.max_users }}</span>
+                    <span *ngIf="!tenant.max_users" class="text-muted">Unlimited</span>
+                  </td>
+                  <td>
+                    <small class="text-muted">{{ formatDate(tenant.created_at) }}</small>
+                  </td>
+                  <td>
+                    <div class="btn-group btn-group-sm" role="group">
+                      <button 
+                        type="button" 
+                        class="btn btn-info btn-sm" 
+                        (click)="viewTenant(tenant)"
+                        title="View Details">
+                        <i class="fas fa-eye"></i>
+                      </button>
+                      <button 
+                        type="button" 
+                        class="btn btn-warning btn-sm" 
+                        (click)="editTenant(tenant)"
+                        title="Edit">
+                        <i class="fas fa-edit"></i>
+                      </button>
+                      <button 
+                        type="button" 
+                        class="btn btn-danger btn-sm" 
+                        (click)="deleteTenant(tenant)"
+                        title="Delete">
+                        <i class="fas fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+                
+                <!-- No data row -->
+                <tr *ngIf="tenants.length === 0">
+                  <td colspan="7" class="text-center py-4">
+                    <div class="text-muted">
+                      <i class="fas fa-inbox fa-2x mb-2"></i>
+                      <p>No tenants found</p>
+                      <button type="button" class="btn btn-primary" (click)="createTenant()">
+                        <i class="fas fa-plus"></i> Create First Tenant
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="!loading && tenants.length > 0" class="row mt-3">
+            <div class="col-sm-12 col-md-5">
+              <div class="dataTables_info">
+                Showing {{ (currentPage - 1) * itemsPerPage + 1 }} to 
+                {{ Math.min(currentPage * itemsPerPage, totalItems) }} of 
+                {{ totalItems }} entries
+              </div>
+            </div>
+            <div class="col-sm-12 col-md-7">
+              <nav aria-label="Tenants pagination">
+                <ul class="pagination justify-content-end">
+                  <!-- Previous button -->
+                  <li class="page-item" [class.disabled]="!hasPrevPage">
+                    <a class="page-link" 
+                       (click)="onPageChange(currentPage - 1)"
+                       [style.cursor]="hasPrevPage ? 'pointer' : 'not-allowed'">
+                      Previous
+                    </a>
+                  </li>
+                  
+                  <!-- Page numbers -->
+                  <li *ngFor="let page of getPaginationPages()" 
+                      class="page-item" 
+                      [class.active]="page === currentPage">
+                    <a class="page-link" (click)="onPageChange(page)">{{ page }}</a>
+                  </li>
+                  
+                  <!-- Next button -->
+                  <li class="page-item" [class.disabled]="!hasNextPage">
+                    <a class="page-link" 
+                       (click)="onPageChange(currentPage + 1)"
+                       [style.cursor]="hasNextPage ? 'pointer' : 'not-allowed'">
+                      Next
+                    </a>
+                  </li>
+                </ul>
+              </nav>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Tenant Modal -->
+<app-tenant-modal
+  [isOpen]="isModalOpen"
+  [data]="modalData"
+  (close)="onModalClose()"
+  (save)="onModalSave($event)"
+></app-tenant-modal>

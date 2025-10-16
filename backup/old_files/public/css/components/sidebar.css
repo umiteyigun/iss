@@ -1,0 +1,283 @@
+/* ===== SIDEBAR STYLES ===== */
+
+/* Modern Sidebar - Hidden by default */
+.main-sidebar {
+    display: none !important;
+}
+
+/* Sidebar collapsed state */
+.sidebar-collapse .main-sidebar {
+    display: none !important;
+}
+
+/* Content wrapper adjustment for collapsed sidebar */
+.sidebar-collapse .content-wrapper {
+    margin-left: 0;
+}
+
+/* Hide all sidebar related elements */
+.sidebar,
+.sidebar-menu,
+.treeview-menu {
+    display: none !important;
+}
+
+.sidebar {
+    padding: 20px 0;
+}
+
+.sidebar-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+}
+
+.sidebar-menu > li {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.sidebar-menu > li > a {
+    color: #ecf0f1;
+    border-left: 4px solid transparent;
+    transition: all 0.3s ease;
+    padding: 15px 25px;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    background: transparent;
+    border-radius: 0 25px 25px 0;
+    margin: 5px 0;
+    font-size: 15px;
+    font-weight: 500;
+    position: relative;
+    overflow: hidden;
+}
+
+.sidebar-menu > li > a::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+.sidebar-menu > li > a:hover {
+    color: white;
+    text-decoration: none;
+    transform: translateX(5px);
+}
+
+.sidebar-menu > li > a:hover::before {
+    opacity: 1;
+}
+
+.sidebar-menu > li.active > a {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+    border-left-color: #ff4757 !important;
+    color: white !important;
+    text-decoration: none;
+    box-shadow: 0 4px 15px rgba(255, 107, 107, 0.3);
+    transform: translateX(5px);
+}
+
+.sidebar-menu > li.active > a:hover {
+    background: linear-gradient(135deg, #ff5252 0%, #ff3838 100%) !important;
+    color: white !important;
+    transform: translateX(8px);
+}
+
+.sidebar-menu > li > a > i {
+    margin-right: 15px;
+    width: 25px;
+    text-align: center;
+    font-size: 18px;
+    transition: all 0.3s ease;
+}
+
+.sidebar-menu > li > a > span {
+    font-weight: 500;
+    flex: 1;
+}
+
+/* Treeview styles */
+.sidebar-menu .treeview {
+    position: relative;
+}
+
+.sidebar-menu .treeview > a {
+    position: relative;
+}
+
+.sidebar-menu .treeview > a > .pull-right-container {
+    position: absolute;
+    right: 20px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+.sidebar-menu .treeview > a > .pull-right-container > .fa-angle-left {
+    transition: transform 0.3s ease;
+    font-size: 16px;
+}
+
+.sidebar-menu .treeview.menu-open > a > .pull-right-container > .fa-angle-left {
+    transform: translateY(-50%) rotate(-90deg);
+}
+
+/* Treeview menu */
+.treeview-menu {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    background: rgba(0,0,0,0.1);
+    display: none;
+    border-radius: 0 0 25px 0;
+    overflow: hidden;
+}
+
+.sidebar-menu .treeview.menu-open > .treeview-menu {
+    display: block;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.treeview-menu > li {
+    margin: 0;
+    padding: 0;
+    border: none;
+}
+
+.treeview-menu > li > a {
+    color: #bdc3c7;
+    padding: 12px 25px 12px 60px;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    background: transparent;
+    border-radius: 0;
+    margin: 0;
+    font-size: 14px;
+    font-weight: 400;
+    border-left: 4px solid transparent;
+    position: relative;
+}
+
+.treeview-menu > li > a::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    z-index: -1;
+}
+
+.treeview-menu > li > a:hover {
+    color: white;
+    text-decoration: none;
+    transform: translateX(5px);
+}
+
+.treeview-menu > li > a:hover::before {
+    opacity: 1;
+}
+
+.treeview-menu > li.active > a {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a24 100%) !important;
+    color: white !important;
+    text-decoration: none;
+    border-left-color: #ff4757 !important;
+    transform: translateX(5px);
+}
+
+.treeview-menu > li > a > i {
+    margin-right: 12px;
+    width: 20px;
+    text-align: center;
+    font-size: 14px;
+    transition: all 0.3s ease;
+}
+
+/* Override AdminLTE default styles */
+.sidebar-menu > li > a:focus,
+.sidebar-menu > li > a:active,
+.treeview-menu > li > a:focus,
+.treeview-menu > li > a:active {
+    background: transparent;
+    outline: none;
+    box-shadow: none;
+}
+
+/* Remove any default borders and backgrounds */
+.sidebar-menu > li,
+.treeview-menu > li {
+    border: none !important;
+    background: transparent !important;
+}
+
+.sidebar-menu > li > a,
+.treeview-menu > li > a {
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Active state overrides */
+.sidebar-menu > li.active,
+.treeview-menu > li.active {
+    background: transparent !important;
+}
+
+.sidebar-menu > li.active > a,
+.treeview-menu > li.active > a {
+    background-color: #3498db !important;
+    border-left: 3px solid #2980b9 !important;
+    color: white !important;
+}
+
+/* Treeview active parent */
+.sidebar-menu .treeview.active > a {
+    background-color: #3498db !important;
+    border-left-color: #2980b9 !important;
+    color: white !important;
+}
+
+/* Ensure no white backgrounds */
+.sidebar-menu *,
+.treeview-menu * {
+    background-color: transparent !important;
+}
+
+.sidebar-menu > li > a,
+.treeview-menu > li > a {
+    background-color: transparent !important;
+}
+
+/* Only apply background for active and hover states */
+.sidebar-menu > li > a:hover,
+.sidebar-menu > li.active > a,
+.sidebar-menu .treeview.active > a,
+.treeview-menu > li > a:hover,
+.treeview-menu > li.active > a {
+    background-color: rgba(52, 152, 219, 0.8) !important;
+} 

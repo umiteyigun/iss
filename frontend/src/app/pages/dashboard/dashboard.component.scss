@@ -1,0 +1,159 @@
+.dashboard {
+  .loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 400px;
+    
+    .loading-content {
+      text-align: center;
+      
+      .spinner-border {
+        width: 3rem;
+        height: 3rem;
+        border-width: 0.3em;
+      }
+      
+      p {
+        color: #6c757d;
+        font-size: 16px;
+        margin-top: 15px;
+      }
+    }
+  }
+
+  .stats-card {
+    .stats-icon {
+      width: 60px;
+      height: 60px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-right: 15px;
+      
+      i {
+        font-size: 24px;
+        color: white;
+      }
+      
+      &.bg-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      }
+      
+      &.bg-success {
+        background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+      }
+      
+      &.bg-info {
+        background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+      }
+      
+      &.bg-warning {
+        background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+      }
+    }
+    
+    .stats-content {
+      .stats-title {
+        color: #6c757d;
+        font-size: 14px;
+        margin-bottom: 5px;
+        font-weight: 500;
+      }
+      
+      .stats-value {
+        color: #495057;
+        font-size: 28px;
+        font-weight: 700;
+        margin: 0;
+      }
+    }
+  }
+  
+  .chart-container {
+    height: 300px;
+    position: relative;
+  }
+  
+  .activity-list {
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      padding: 15px 0;
+      border-bottom: 1px solid #e9ecef;
+      
+      &:last-child {
+        border-bottom: none;
+      }
+      
+      .activity-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background-color: #f8f9fa;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 15px;
+        flex-shrink: 0;
+        
+        i {
+          font-size: 16px;
+        }
+      }
+      
+      .activity-content {
+        flex: 1;
+        
+        .activity-message {
+          margin: 0 0 5px 0;
+          color: #495057;
+          font-size: 14px;
+        }
+        
+        .activity-time {
+          color: #6c757d;
+          font-size: 12px;
+        }
+      }
+    }
+  }
+}
+
+.badge {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-weight: 500;
+  
+  &.badge-sm {
+    font-size: 10px;
+    padding: 3px 6px;
+  }
+}
+
+.btn-xs {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.75rem !important;
+  line-height: 1.2 !important;
+  border-radius: 0.2rem !important;
+  min-width: 80px !important;
+  height: 28px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+// Pulse animation for live monitoring indicator
+@keyframes pulse {
+  0% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+  100% {
+    opacity: 1;
+  }
+}

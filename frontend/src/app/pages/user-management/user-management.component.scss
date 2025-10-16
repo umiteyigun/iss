@@ -1,0 +1,185 @@
+// User Management Styles
+
+.table-responsive {
+  overflow-x: auto;
+}
+
+.table {
+  th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+    border-top: none;
+  }
+  
+  td {
+    vertical-align: middle;
+  }
+}
+
+.badge {
+  font-size: 0.75em;
+  
+  &.badge-success {
+    background-color: #28a745;
+  }
+  
+  &.badge-danger {
+    background-color: #dc3545;
+  }
+  
+  &.badge-info {
+    background-color: #17a2b8;
+  }
+  
+  &.badge-secondary {
+    background-color: #6c757d;
+  }
+}
+
+.btn-group {
+  .btn {
+    margin-right: 2px;
+    
+    &:last-child {
+      margin-right: 0;
+    }
+  }
+}
+
+.spinner-border {
+  width: 2rem;
+  height: 2rem;
+}
+
+.form-label {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+}
+
+.modal {
+  &.show {
+    display: block !important;
+  }
+}
+
+.modal-dialog {
+  margin-top: 2rem;
+}
+
+.modal-content {
+  border: none;
+  border-radius: 0.5rem;
+  box-shadow: 0 0.5rem 1rem rgba(0, 0, 0, 0.15);
+}
+
+.modal-header {
+  border-bottom: 1px solid #dee2e6;
+  
+  .modal-title {
+    font-weight: 600;
+  }
+}
+
+.modal-footer {
+  border-top: 1px solid #dee2e6;
+}
+
+.form-control {
+  border-radius: 0.25rem;
+  
+  &:focus {
+    border-color: #007bff;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+  }
+}
+
+.input-group {
+  .form-control {
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 0;
+  }
+  
+  .input-group-append .btn {
+    border-top-left-radius: 0;
+    border-bottom-left-radius: 0;
+  }
+}
+
+.pagination {
+  .page-link {
+    color: #007bff;
+    border-color: #dee2e6;
+    
+    &:hover {
+      color: #0056b3;
+      background-color: #e9ecef;
+      border-color: #dee2e6;
+    }
+  }
+  
+  .page-item.active .page-link {
+    background-color: #007bff;
+    border-color: #007bff;
+  }
+  
+  .page-item.disabled .page-link {
+    color: #6c757d;
+    background-color: #fff;
+    border-color: #dee2e6;
+  }
+}
+
+.card {
+  border: none;
+  box-shadow: 0 0.125rem 0.25rem rgba(0, 0, 0, 0.075);
+  
+  .card-header {
+    background-color: #f8f9fa;
+    border-bottom: 1px solid #dee2e6;
+    
+    .card-title {
+      margin: 0;
+      font-weight: 600;
+    }
+  }
+}
+
+.content-header {
+  .breadcrumb {
+    background: none;
+    padding: 0;
+    margin: 0;
+    
+    .breadcrumb-item {
+      + .breadcrumb-item::before {
+        content: ">";
+        color: #6c757d;
+      }
+      
+      a {
+        color: #007bff;
+        text-decoration: none;
+        
+        &:hover {
+          text-decoration: underline;
+        }
+      }
+    }
+  }
+}
+
+// Responsive adjustments
+@media (max-width: 768px) {
+  .table-responsive {
+    font-size: 0.875rem;
+  }
+  
+  .btn-group .btn {
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+  }
+  
+  .modal-dialog {
+    margin: 1rem;
+  }
+}

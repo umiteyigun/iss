@@ -1,0 +1,226 @@
+<!-- Modal Overlay -->
+<div *ngIf="isOpen" class="modal-overlay" (click)="onClose()">
+  <div class="modal-container" (click)="$event.stopPropagation()">
+    <!-- Modal Header -->
+    <div class="modal-header">
+      <h3 class="modal-title">{{ getTitle() }}</h3>
+      <button type="button" class="close-btn" (click)="onClose()">
+        <i class="fas fa-times"></i>
+      </button>
+    </div>
+
+    <!-- Modal Body -->
+    <div class="modal-body">
+      <form (ngSubmit)="onSave()" #tenantForm="ngForm">
+        <div class="row">
+          <!-- Basic Information -->
+          <div class="col-md-6">
+            <h5 class="section-title">Basic Information</h5>
+            
+            <!-- Name -->
+            <div class="form-group">
+              <label for="name" class="form-label">Name *</label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                class="form-control"
+                [class.is-invalid]="errors['name']"
+                [(ngModel)]="formData.name"
+                [disabled]="isFieldDisabled('name')"
+                placeholder="Enter tenant name"
+              >
+              <div *ngIf="errors['name']" class="invalid-feedback">
+                {{ errors['name'] }}
+              </div>
+            </div>
+
+            <!-- Subdomain -->
+            <div class="form-group">
+              <label for="subdomain" class="form-label">Subdomain</label>
+              <input
+                type="text"
+                id="subdomain"
+                name="subdomain"
+                class="form-control"
+                [class.is-invalid]="errors['subdomain']"
+                [(ngModel)]="formData.subdomain"
+                [disabled]="isFieldDisabled('subdomain')"
+                placeholder="e.g., company"
+              >
+              <div *ngIf="errors['subdomain']" class="invalid-feedback">
+                {{ errors['subdomain'] }}
+              </div>
+              <small class="form-text text-muted">
+                Optional. Used for subdomain-based access (e.g., company.yourdomain.com)
+              </small>
+            </div>
+
+            <!-- Status -->
+            <div class="form-group">
+              <label for="status" class="form-label">Status</label>
+              <select
+                id="status"
+                name="status"
+                class="form-control"
+                [(ngModel)]="formData.status"
+                [disabled]="isFieldDisabled('status')"
+              >
+                <option *ngFor="let status of statusOptions" [value]="status.value">
+                  {{ status.label }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Radius Secret -->
+            <div class="form-group">
+              <label for="radius_secret" class="form-label">
+                Radius Secret
+                <span *ngIf="!isEditMode">*</span>
+              </label>
+              <input
+                type="password"
+                id="radius_secret"
+                name="radius_secret"
+                class="form-control"
+                [class.is-invalid]="errors['radius_secret']"
+                [(ngModel)]="formData.radius_secret"
+                [disabled]="isFieldDisabled('radius_secret')"
+                placeholder="Enter radius secret"
+              >
+              <div *ngIf="errors['radius_secret']" class="invalid-feedback">
+                {{ errors['radius_secret'] }}
+              </div>
+              <small *ngIf="isEditMode" class="form-text text-muted">
+                Leave empty to keep current secret
+              </small>
+            </div>
+          </div>
+
+          <!-- Contact Information -->
+          <div class="col-md-6">
+            <h5 class="section-title">Contact Information</h5>
+            
+            <!-- Contact Email -->
+            <div class="form-group">
+              <label for="contact_email" class="form-label">Contact Email</label>
+              <input
+                type="email"
+                id="contact_email"
+                name="contact_email"
+                class="form-control"
+                [class.is-invalid]="errors['contact_email']"
+                [(ngModel)]="formData.contact_email"
+                [disabled]="isFieldDisabled('contact_email')"
+                placeholder="contact@company.com"
+              >
+              <div *ngIf="errors['contact_email']" class="invalid-feedback">
+                {{ errors['contact_email'] }}
+              </div>
+            </div>
+
+            <!-- Contact Phone -->
+            <div class="form-group">
+              <label for="contact_phone" class="form-label">Contact Phone</label>
+              <input
+                type="tel"
+                id="contact_phone"
+                name="contact_phone"
+                class="form-control"
+                [(ngModel)]="formData.contact_phone"
+                [disabled]="isFieldDisabled('contact_phone')"
+                placeholder="+1 234 567 8900"
+              >
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+              <label for="description" class="form-label">Description</label>
+              <textarea
+                id="description"
+                name="description"
+                class="form-control"
+                rows="3"
+                [(ngModel)]="formData.description"
+                [disabled]="isFieldDisabled('description')"
+                placeholder="Optional description"
+              ></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- Limits Section -->
+        <div class="row">
+          <div class="col-12">
+            <h5 class="section-title">Limits</h5>
+          </div>
+          
+          <!-- Max Users -->
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="max_users" class="form-label">Max Users</label>
+              <input
+                type="number"
+                id="max_users"
+                name="max_users"
+                class="form-control"
+                [class.is-invalid]="errors['max_users']"
+                [(ngModel)]="formData.max_users"
+                [disabled]="isFieldDisabled('max_users')"
+                placeholder="Leave empty for unlimited"
+                min="1"
+                max="10000"
+              >
+              <div *ngIf="errors['max_users']" class="invalid-feedback">
+                {{ errors['max_users'] }}
+              </div>
+              <small class="form-text text-muted">
+                Maximum number of users allowed (1-10000)
+              </small>
+            </div>
+          </div>
+
+          <!-- Max NAS Devices -->
+          <div class="col-md-6">
+            <div class="form-group">
+              <label for="max_nas" class="form-label">Max NAS Devices</label>
+              <input
+                type="number"
+                id="max_nas"
+                name="max_nas"
+                class="form-control"
+                [class.is-invalid]="errors['max_nas']"
+                [(ngModel)]="formData.max_nas"
+                [disabled]="isFieldDisabled('max_nas')"
+                placeholder="Leave empty for unlimited"
+                min="1"
+                max="1000"
+              >
+              <div *ngIf="errors['max_nas']" class="invalid-feedback">
+                {{ errors['max_nas'] }}
+              </div>
+              <small class="form-text text-muted">
+                Maximum number of NAS devices allowed (1-1000)
+              </small>
+            </div>
+          </div>
+        </div>
+      </form>
+    </div>
+
+    <!-- Modal Footer -->
+    <div class="modal-footer">
+      <button type="button" class="btn btn-secondary" (click)="onClose()">
+        Cancel
+      </button>
+      <button 
+        type="button" 
+        class="btn btn-primary" 
+        (click)="onSave()"
+        [disabled]="isViewMode"
+      >
+        {{ getSaveButtonText() }}
+      </button>
+    </div>
+  </div>
+</div>

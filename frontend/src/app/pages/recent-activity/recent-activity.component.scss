@@ -1,0 +1,98 @@
+/* Recent Activity specific styles */
+.card {
+  margin-bottom: 20px;
+}
+
+.card-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  color: #212529;
+}
+
+.card-tools .input-group {
+  margin-bottom: 0;
+}
+
+.table th {
+  background-color: #f8f9fa;
+  font-weight: 600;
+  color: #212529;
+}
+
+.btn-sm {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+/* Modal styles */
+.modal {
+  z-index: 1050;
+}
+
+.modal-backdrop {
+  z-index: 1040;
+}
+
+.modal-xl {
+  max-width: 1200px;
+}
+
+.modal-header {
+  background-color: #f8f9fa;
+  border-bottom: 1px solid #dee2e6;
+  color: #212529;
+}
+
+.modal-title {
+  font-weight: 600;
+}
+
+.modal-body {
+  max-height: 80vh;
+  overflow-y: auto;
+  color: #212529;
+}
+
+/* Chart styles */
+canvas {
+  max-width: 100%;
+  height: auto !important;
+}
+
+.card-header h5 {
+  color: #495057;
+  font-weight: 600;
+}
+
+/* Force readable text color in tables */
+.table {
+  color: #212529;
+}
+
+/* Ensure badges and small text remain readable */
+small,
+.text-muted {
+  color: #6c757d !important;
+}
+
+/* Make badge text readable and use subtle backgrounds */
+.badge {
+  color: #212529 !important;
+}
+
+.badge-success {
+  background-color: #d1e7dd !important; /* Bootstrap success-subtle */
+}
+
+.badge-warning {
+  background-color: #fff3cd !important; /* Bootstrap warning-subtle */
+}
+
+.badge-info {
+  background-color: #cff4fc !important; /* Bootstrap info-subtle */
+}
+
+.badge-secondary {
+  background-color: #e2e3e5 !important; /* Bootstrap secondary-subtle */
+}
+

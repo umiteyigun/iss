@@ -1,0 +1,385 @@
+<!-- Mikrotik Info Modal -->
+<div class="modal fade" [class.show]="isOpen" [style.display]="isOpen ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-xl" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">
+          <i class="fas fa-server mr-2"></i>
+          {{ 'mikrotik_modal.device_information' | translate }}
+          <span *ngIf="nasDevice" class="badge badge-primary ml-2">{{ nasDevice.nasname }}</span>
+        </h5>
+        <div class="d-flex align-items-center">
+          <div class="form-check mr-3">
+            <input 
+              class="form-check-input" 
+              type="checkbox" 
+              id="autoRefresh"
+              [(ngModel)]="autoRefresh"
+              (change)="toggleAutoRefresh()"
+            >
+            <label class="form-check-label" for="autoRefresh">
+              {{ 'mikrotik_modal.auto_refresh' | translate }}
+            </label>
+          </div>
+          <button type="button" class="close" (click)="onClose()" [attr.aria-label]="'common.close' | translate">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+      </div>
+      
+      <div class="modal-body">
+        <!-- Loading State -->
+        <div *ngIf="loading" class="text-center py-4">
+          <div class="spinner-border text-primary" role="status">
+            <span class="sr-only">Loading...</span>
+          </div>
+          <p class="mt-2">{{ 'mikrotik_modal.loading_information' | translate }}</p>
+        </div>
+
+        <!-- Error State -->
+        <div *ngIf="error && !loading" class="alert alert-danger">
+          <i class="fas fa-exclamation-triangle mr-2"></i>
+          {{ error }}
+          <button class="btn btn-sm btn-outline-danger ml-2" (click)="loadMikrotikInfo()">
+            <i class="fas fa-redo"></i> {{ 'mikrotik_modal.retry' | translate }}
+          </button>
+        </div>
+
+        <!-- Custom Credentials -->
+        <div *ngIf="!loading && !error" class="row mb-3">
+          <div class="col-12">
+            <div class="card">
+              <div class="card-header">
+                <h6 class="mb-0">
+                  <i class="fas fa-key mr-2"></i>
+                  {{ 'mikrotik_modal.api_credentials' | translate }}
+                </h6>
+              </div>
+              <div class="card-body">
+                <div class="form-check mb-2">
+                  <input 
+                    class="form-check-input" 
+                    type="checkbox" 
+                    id="useCustomCredentials"
+                    [(ngModel)]="useCustomCredentials"
+                  >
+                  <label class="form-check-label" for="useCustomCredentials">
+                    {{ 'mikrotik_modal.use_custom_credentials' | translate }}
+                  </label>
+                </div>
+                <div *ngIf="useCustomCredentials" class="row">
+                  <div class="col-md-6">
+                    <input 
+                      type="text" 
+                      class="form-control" 
+                      [placeholder]="'mikrotik_modal.username' | translate"
+                      [(ngModel)]="customUsername"
+                    >
+                  </div>
+                  <div class="col-md-6">
+                    <input 
+                      type="password" 
+                      class="form-control" 
+                      [placeholder]="'mikrotik_modal.password' | translate"
+                      [(ngModel)]="customPassword"
+                    >
+                  </div>
+                </div>
+                <button 
+                  class="btn btn-primary btn-sm mt-2" 
+                  (click)="loadMikrotikInfo()"
+                  [disabled]="loading"
+                >
+                  <i class="fas fa-sync-alt mr-1"></i>
+                  {{ 'mikrotik_modal.refresh_data' | translate }}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Mikrotik Information -->
+        <div *ngIf="mikrotikInfo && !loading && !error">
+          <!-- Last Update Info -->
+          <div class="row mb-3">
+            <div class="col-12">
+              <small class="text-muted">
+                <i class="fas fa-clock mr-1"></i>
+                {{ 'mikrotik_modal.last_updated' | translate }}: {{ lastUpdate | date:'medium' }}
+                <span *ngIf="autoRefresh" class="badge badge-info ml-2">{{ 'mikrotik_modal.auto_refresh_on' | translate }}</span>
+              </small>
+            </div>
+          </div>
+
+          <!-- System Resources -->
+          <div class="row mb-4">
+            <div class="col-md-4">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="fas fa-microchip mr-2"></i>
+                    {{ 'mikrotik_modal.cpu_usage' | translate }}
+                  </h6>
+                </div>
+                <div class="card-body text-center">
+                  <div class="progress mb-2" style="height: 20px;">
+                    <div 
+                      class="progress-bar bg-{{ getCpuColor(+(mikrotikInfo.system.resource?.['cpu-load'] || 0)) }}" 
+                      [style.width.%]="+(mikrotikInfo.system.resource?.['cpu-load'] || 0)"
+                      role="progressbar"
+                    >
+                      {{ (+(mikrotikInfo.system.resource?.['cpu-load'] || 0)).toFixed(1) }}%
+                    </div>
+                  </div>
+                  <small class="text-muted">{{ 'mikrotik_modal.cpu_load' | translate }}</small>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="fas fa-memory mr-2"></i>
+                    {{ 'mikrotik_modal.memory_usage' | translate }}
+                  </h6>
+                </div>
+                <div class="card-body text-center">
+                  <div class="progress mb-2" style="height: 20px;">
+                    <div 
+                      class="progress-bar bg-{{ getMemoryColor(getMemoryUsagePercentage()) }}" 
+                      [style.width.%]="getMemoryUsagePercentage()"
+                      role="progressbar"
+                    >
+                      {{ getMemoryUsagePercentage().toFixed(1) }}%
+                    </div>
+                  </div>
+                  <small class="text-muted">
+                    {{ formatBytes(mikrotikInfo.system.memory.used || 0) }} / 
+                    {{ formatBytes(mikrotikInfo.system.memory.total || 0) }}
+                  </small>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-4">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="fas fa-hdd mr-2"></i>
+                    {{ 'mikrotik_modal.disk_usage' | translate }}
+                  </h6>
+                </div>
+                <div class="card-body text-center">
+                  <div class="progress mb-2" style="height: 20px;">
+                    <div 
+                      class="progress-bar bg-{{ getDiskColor(getDiskUsagePercentage()) }}" 
+                      [style.width.%]="getDiskUsagePercentage()"
+                      role="progressbar"
+                    >
+                      {{ getDiskUsagePercentage().toFixed(1) }}%
+                    </div>
+                  </div>
+                  <small class="text-muted">
+                    {{ formatBytes(mikrotikInfo.system.disk.used || 0) }} / 
+                    {{ formatBytes(mikrotikInfo.system.disk.total || 0) }}
+                  </small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- System Information -->
+          <div class="row mb-4">
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    {{ 'mikrotik_modal.system_information' | translate }}
+                  </h6>
+                </div>
+                <div class="card-body">
+                  <table class="table table-sm">
+                    <tr>
+                      <td><strong>{{ 'mikrotik_modal.version' | translate }}:</strong></td>
+                      <td>{{ mikrotikInfo.system.resource?.version || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>{{ 'mikrotik_modal.architecture' | translate }}:</strong></td>
+                      <td>{{ mikrotikInfo.system.resource?.['architecture-name'] || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>{{ 'mikrotik_modal.board' | translate }}:</strong></td>
+                      <td>{{ mikrotikInfo.system.resource?.['board-name'] || 'N/A' }}</td>
+                    </tr>
+                    <tr>
+                      <td><strong>{{ 'mikrotik_modal.uptime' | translate }}:</strong></td>
+                      <td>{{ formatUptime(mikrotikInfo.system.resource?.uptime || 'N/A') }}</td>
+                    </tr>
+                  </table>
+                </div>
+              </div>
+            </div>
+
+            <div class="col-md-6">
+              <div class="card">
+                <div class="card-header">
+                  <h6 class="mb-0">
+                    <i class="fas fa-users mr-2"></i>
+                    {{ 'mikrotik_modal.pppoe_users' | translate }}
+                  </h6>
+                </div>
+                <div class="card-body text-center">
+                  <h3 class="text-primary">{{ mikrotikInfo.pppoe.active_users || 0 }}</h3>
+                  <small class="text-muted">{{ 'mikrotik_modal.active_pppoe_users' | translate }}</small>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- PPPoE Users Table -->
+          <div *ngIf="mikrotikInfo.pppoe?.users && mikrotikInfo.pppoe.users.length > 0" class="row mb-4">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">
+                    <i class="fas fa-list mr-2"></i>
+                    {{ 'mikrotik_modal.active_pppoe_users' | translate }} ({{ mikrotikInfo.pppoe.users.length }})
+                  </h6>
+                  <div>
+                    <button 
+                      class="btn btn-sm btn-outline-primary mr-2" 
+                      (click)="togglePppoeUsers()"
+                    >
+                      <i class="fas" [ngClass]="showPppoeUsers ? 'fa-eye-slash' : 'fa-eye'"></i>
+                      {{ showPppoeUsers ? ('mikrotik_modal.hide' | translate) : ('mikrotik_modal.show' | translate) }}
+                    </button>
+                    <button 
+                      *ngIf="hasMorePppoeUsers" 
+                      class="btn btn-sm btn-outline-secondary" 
+                      (click)="loadMorePppoeUsers()"
+                    >
+                      <i class="fas fa-plus"></i> {{ 'mikrotik_modal.load_more' | translate }}
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body" *ngIf="showPppoeUsers">
+                  <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-striped table-sm">
+                      <thead class="thead-light sticky-top">
+                        <tr>
+                          <th>{{ 'mikrotik_modal.username' | translate }}</th>
+                          <th>{{ 'mikrotik_modal.ip_address' | translate }}</th>
+                          <th>{{ 'mikrotik_modal.uptime' | translate }}</th>
+                          <th>{{ 'mikrotik_modal.bytes_in' | translate }}</th>
+                          <th>{{ 'mikrotik_modal.bytes_out' | translate }}</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let user of filteredPppoeUsers; trackBy: trackByUsername">
+                          <td>{{ user.name }}</td>
+                          <td><code>{{ user.address }}</code></td>
+                          <td>{{ formatUptime(user.uptime) }}</td>
+                          <td>{{ formatBytes(user.bytes_in) }}</td>
+                          <td>{{ formatBytes(user.bytes_out) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="hasMorePppoeUsers" class="text-center mt-2">
+                    <small class="text-muted">
+                      {{ 'mikrotik_modal.showing' | translate }} {{ maxPppoeUsers }} {{ 'mikrotik_modal.of' | translate }} {{ mikrotikInfo.pppoe.users.length }} {{ 'mikrotik_modal.users' | translate }}
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Interface Statistics -->
+          <div *ngIf="mikrotikInfo.interfaces?.interfaces && mikrotikInfo.interfaces.interfaces.length > 0" class="row">
+            <div class="col-12">
+              <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                  <h6 class="mb-0">
+                    <i class="fas fa-network-wired mr-2"></i>
+                    Interface Statistics ({{ mikrotikInfo.interfaces.interfaces.length }})
+                  </h6>
+                  <div>
+                    <button 
+                      class="btn btn-sm btn-outline-primary mr-2" 
+                      (click)="toggleInterfaces()"
+                    >
+                      <i class="fas" [ngClass]="showInterfaces ? 'fa-eye-slash' : 'fa-eye'"></i>
+                      {{ showInterfaces ? 'Hide' : 'Show' }}
+                    </button>
+                    <button 
+                      *ngIf="hasMoreInterfaces" 
+                      class="btn btn-sm btn-outline-secondary" 
+                      (click)="loadMoreInterfaces()"
+                    >
+                      <i class="fas fa-plus"></i> Load More
+                    </button>
+                  </div>
+                </div>
+                <div class="card-body" *ngIf="showInterfaces">
+                  <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
+                    <table class="table table-striped table-sm">
+                      <thead class="thead-light sticky-top">
+                        <tr>
+                          <th>Interface</th>
+                          <th>Type</th>
+                          <th>Status</th>
+                          <th>RX Bytes</th>
+                          <th>TX Bytes</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr *ngFor="let iface of filteredInterfaces; trackBy: trackByInterfaceName">
+                          <td><code>{{ iface.name }}</code></td>
+                          <td>{{ iface.type }}</td>
+                          <td>
+                            <span class="badge" [ngClass]="iface.running ? 'badge-success' : 'badge-danger'">
+                              {{ iface.running ? 'Running' : 'Stopped' }}
+                            </span>
+                            <span *ngIf="iface.disabled" class="badge badge-warning ml-1">Disabled</span>
+                          </td>
+                          <td>{{ formatBytes(+(iface.rx_byte || 0)) }}</td>
+                          <td>{{ formatBytes(+(iface.tx_byte || 0)) }}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                  <div *ngIf="hasMoreInterfaces" class="text-center mt-2">
+                    <small class="text-muted">
+                      Showing {{ maxInterfaces }} of {{ mikrotikInfo.interfaces.interfaces.length }} interfaces
+                    </small>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="onClose()">
+          Close
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="loadMikrotikInfo()"
+          [disabled]="loading"
+        >
+          <i class="fas fa-sync-alt mr-1" [class.fa-spin]="loading"></i>
+          Refresh
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="isOpen" *ngIf="isOpen"></div>

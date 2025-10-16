@@ -1,0 +1,28 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+
+    # Redirect to front controller
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.*)$ index.php?mod=$1 [L,QSA]
+</IfModule>
+
+# PHP Settings to prevent infinite loops and improve performance
+php_value max_execution_time 60
+php_value max_input_time 60
+php_value memory_limit 256M
+php_value post_max_size 64M
+php_value upload_max_filesize 64M
+
+# Set timeout for database connections
+php_value mysql.connect_timeout 30
+php_value mysql.read_timeout 30
+
+# Enable error reporting for debugging
+php_flag display_errors On
+php_value error_reporting E_ALL
+
+# Security headers
+Header always set X-Content-Type-Options nosniff
+Header always set X-Frame-Options DENY
+Header always set X-XSS-Protection "1; mode=block" 

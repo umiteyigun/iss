@@ -1,0 +1,5 @@
+<!-- Show layout only if not on login page -->
+<app-layout *ngIf="!isLoginPage"></app-layout>
+
+<!-- Show router outlet for login page -->
+<router-outlet *ngIf="isLoginPage"></router-outlet>

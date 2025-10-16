@@ -1,0 +1,57 @@
+# Node modules
+node_modules/
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+*.log
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker volumes
+mysql_data/
+redis_data/
+
+# Sensitive files
+ADMIN_CREDENTIALS.txt
+*.pem
+*.key
+ssl/
+
+# Private configuration
+.env
+.env.local
+.env.*.local
+docker-compose.override.yml
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Testing
+coverage/
+.nyc_output/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+

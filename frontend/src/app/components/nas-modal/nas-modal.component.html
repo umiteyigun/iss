@@ -1,0 +1,223 @@
+<!-- NAS Modal -->
+<div class="modal fade" [class.show]="isOpen" [style.display]="isOpen ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ getTitle() }}</h5>
+        <button type="button" class="close" (click)="onClose()" [attr.aria-label]="'common.close' | translate">
+          <span aria-hidden="true">&times;</span>
+        </button>
+      </div>
+      
+      <div class="modal-body">
+        <form>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="nasname">{{ 'nas_modal.nas_name' | translate }} *</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="nasname"
+                  [(ngModel)]="formData.nasname" 
+                  name="nasname"
+                  [readonly]="isViewMode"
+                  [class.is-invalid]="errors['nasname']"
+                >
+                <div class="invalid-feedback" *ngIf="errors['nasname']">
+                  {{ errors['nasname'] }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="shortname">{{ 'nas_modal.short_name' | translate }}</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="shortname"
+                  [(ngModel)]="formData.shortname" 
+                  name="shortname"
+                  [readonly]="isViewMode"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="type">{{ 'nas_modal.type' | translate }}</label>
+                <select 
+                  class="form-control" 
+                  id="type"
+                  [(ngModel)]="formData.type" 
+                  name="type"
+                  [disabled]="isViewMode"
+                >
+                  <option *ngFor="let type of typeOptions" [value]="type.value">
+                    {{ type.label }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="ports">{{ 'nas_modal.ports' | translate }}</label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  id="ports"
+                  [(ngModel)]="formData.ports" 
+                  name="ports"
+                  [readonly]="isViewMode"
+                  [class.is-invalid]="errors['ports']"
+                >
+                <div class="invalid-feedback" *ngIf="errors['ports']">
+                  {{ errors['ports'] }}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="secret">{{ 'nas_modal.secret' | translate }} *</label>
+                <input 
+                  type="password" 
+                  class="form-control" 
+                  id="secret"
+                  [(ngModel)]="formData.secret" 
+                  name="secret"
+                  [readonly]="isViewMode"
+                  [class.is-invalid]="errors['secret']"
+                  [placeholder]="isEditMode ? ('nas_modal.leave_empty_to_keep_current' | translate) : ''"
+                >
+                <div class="invalid-feedback" *ngIf="errors['secret']">
+                  {{ errors['secret'] }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="server">{{ 'nas_modal.server' | translate }}</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="server"
+                  [(ngModel)]="formData.server" 
+                  name="server"
+                  [readonly]="isViewMode"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="community">{{ 'nas_modal.community' | translate }}</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="community"
+                  [(ngModel)]="formData.community" 
+                  name="community"
+                  [readonly]="isViewMode"
+                >
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="ruser">{{ 'nas_modal.r_user' | translate }}</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="ruser"
+                  [(ngModel)]="formData.ruser" 
+                  name="ruser"
+                  [readonly]="isViewMode"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="tenant_id">{{ 'nas_modal.tenant' | translate }} *</label>
+                <select 
+                  class="form-control" 
+                  id="tenant_id"
+                  [(ngModel)]="formData.tenant_id" 
+                  name="tenant_id"
+                  [disabled]="isViewMode"
+                  [class.is-invalid]="errors['tenant_id']"
+                >
+                  <option value="0">{{ 'nas_modal.select_tenant' | translate }}</option>
+                  <option *ngFor="let tenant of tenants" [value]="tenant.id">
+                    {{ tenant.name }}
+                  </option>
+                </select>
+                <div class="invalid-feedback" *ngIf="errors['tenant_id']">
+                  {{ errors['tenant_id'] }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="naspassword">{{ 'nas_modal.nas_password' | translate }}</label>
+                <input 
+                  type="password" 
+                  class="form-control" 
+                  id="naspassword"
+                  [(ngModel)]="formData.naspassword" 
+                  name="naspassword"
+                  [readonly]="isViewMode"
+                  [placeholder]="isEditMode ? ('nas_modal.leave_empty_to_keep_current' | translate) : ''"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group">
+            <label for="description">{{ 'nas_modal.description' | translate }}</label>
+            <textarea 
+              class="form-control" 
+              id="description"
+              [(ngModel)]="formData.description" 
+              name="description"
+              [readonly]="isViewMode"
+              rows="3"
+            ></textarea>
+          </div>
+        </form>
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="onClose()">
+          {{ isViewMode ? ('common.close' | translate) : ('common.cancel' | translate) }}
+        </button>
+        <button 
+          *ngIf="!isViewMode" 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="onSave()"
+          [disabled]="saving"
+        >
+          <span *ngIf="saving" class="spinner-border spinner-border-sm mr-2" role="status"></span>
+          {{ saving ? ('nas_modal.saving' | translate) : (isEditMode ? ('common.update' | translate) : ('common.create' | translate)) }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div class="modal-backdrop fade" [class.show]="isOpen" *ngIf="isOpen"></div>

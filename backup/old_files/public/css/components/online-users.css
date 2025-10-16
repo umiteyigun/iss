@@ -1,0 +1,792 @@
+/* Online Users specific styles - Page specific to avoid conflicts */
+.online-users-page .dashboard-hero {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 25px 30px;
+    border-radius: 20px;
+    margin-bottom: 30px;
+    box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    min-height: 120px;
+}
+
+.online-users-page .hero-title {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin: 0;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.online-users-page .hero-title i {
+    margin-right: 15px;
+    font-size: 2rem;
+}
+
+.online-users-page .hero-subtitle {
+    font-size: 1rem;
+    opacity: 0.9;
+    margin: 8px 0 0 0;
+    font-weight: 400;
+}
+
+.online-users-page .hero-stats {
+    display: flex;
+    gap: 20px;
+}
+
+.online-users-page .hero-stat {
+    text-align: center;
+    background: rgba(255,255,255,0.1);
+    padding: 12px 16px;
+    border-radius: 12px;
+    backdrop-filter: blur(10px);
+}
+
+.online-users-page .hero-stat i {
+    font-size: 1.3rem;
+    margin-bottom: 6px;
+    display: block;
+}
+
+.online-users-page .hero-stat span {
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+.online-users-page .hero-visual {
+    display: flex;
+    justify-content: flex-end;
+}
+
+.online-users-page .floating-card {
+    background: white;
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+}
+
+.online-users-page .floating-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.online-users-page .floating-card:hover {
+    transform: translateY(-8px);
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+}
+
+.online-users-page .card-icon {
+    width: 45px;
+    height: 45px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 12px;
+    font-size: 1.3rem;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.online-users-page .card-text {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.online-users-page .stats-grid {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 30px;
+}
+
+.online-users-page .stat-card {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.online-users-page .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.online-users-page .stat-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.online-users-page .card-glow {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255,255,255,0.1);
+    border-radius: 20px;
+    transition: opacity 0.3s ease;
+    opacity: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.online-users-page .card-glow i {
+    font-size: 3rem;
+    color: rgba(255,255,255,0.3);
+    opacity: 0;
+    transition: all 0.3s ease;
+}
+
+.online-users-page .stat-card:hover .card-glow {
+    opacity: 1;
+}
+
+.online-users-page .stat-card:hover .card-glow i {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.online-users-page .card-content {
+    text-align: center;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    height: 100%;
+}
+
+.online-users-page .stat-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+}
+
+.online-users-page .stat-badge {
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.online-users-page .stat-badge.success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.online-users-page .stat-badge.warning {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+}
+
+.online-users-page .stat-badge.info {
+    background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+}
+
+.online-users-page .stat-body {
+    text-align: center;
+    margin-bottom: 0;
+}
+
+.online-users-page .stat-main {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: #2c3e50;
+    margin-bottom: 8px;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    line-height: 1;
+}
+
+.online-users-page .stat-label {
+    font-size: 0.85rem;
+    color: #6c757d;
+    font-weight: 500;
+    margin: 0;
+}
+
+.online-users-page .user-management-section {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    margin-bottom: 30px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.online-users-page .user-management-section:hover {
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+}
+
+.online-users-page .section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 25px;
+    padding-bottom: 20px;
+    border-bottom: 2px solid #f8f9fa;
+}
+
+.online-users-page .header-content {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.online-users-page .header-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.online-users-page .header-title i {
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.online-users-page .header-title h3 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.3rem;
+    color: #2c3e50;
+}
+
+.online-users-page .management-container {
+    background: white;
+    border-radius: 15px;
+    overflow: hidden;
+}
+
+.online-users-page .user-table-container {
+    background: white;
+    border-radius: 20px;
+    overflow: hidden;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+}
+
+.online-users-page .user-table-container:hover {
+    box-shadow: 0 15px 35px rgba(0,0,0,0.15);
+}
+
+.online-users-page .table-header {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    padding: 20px 25px;
+}
+
+.online-users-page .header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.online-users-page .header-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.online-users-page .header-title i {
+    font-size: 1.5rem;
+}
+
+.online-users-page .header-title h3 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.3rem;
+}
+
+.online-users-page .header-stats {
+    display: flex;
+    gap: 15px;
+}
+
+.online-users-page .stat-badge {
+    background: rgba(255,255,255,0.2);
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    backdrop-filter: blur(10px);
+}
+
+.online-users-page .table-body {
+    padding: 0;
+}
+
+.online-users-page .table {
+    margin: 0;
+    border: none;
+}
+
+.online-users-page .table thead th {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border: none;
+    padding: 15px;
+    font-weight: 600;
+    color: #2c3e50;
+    text-transform: uppercase;
+    font-size: 0.8rem;
+    letter-spacing: 0.5px;
+    vertical-align: middle;
+}
+
+.online-users-page .table thead th i {
+    color: #667eea;
+    font-size: 0.9rem;
+    margin-right: 5px;
+}
+
+.online-users-page .table tbody tr {
+    border: none;
+    transition: all 0.3s ease;
+}
+
+.online-users-page .table tbody tr:hover {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    transform: scale(1.01);
+    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+}
+
+.online-users-page .table tbody td {
+    padding: 15px;
+    border: none;
+    border-bottom: 1px solid #f1f3f4;
+    vertical-align: middle;
+}
+
+.online-users-page .user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.online-users-page .user-avatar {
+    width: 35px;
+    height: 35px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.9rem;
+}
+
+.online-users-page .status-cell {
+    display: flex;
+    align-items: center;
+}
+
+.online-users-page .status-badge {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 15px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.online-users-page .status-badge.online {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+    color: white;
+}
+
+.online-users-page .status-badge.offline {
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+    color: white;
+}
+
+.online-users-page .status-badge i {
+    font-size: 0.9rem;
+    margin-right: 2px;
+}
+
+.online-users-page .ip-cell, .online-users-page .nas-cell, .online-users-page .uptime-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+.online-users-page .service-cell {
+    display: flex;
+    align-items: center;
+}
+
+.online-users-page .service-badge {
+    background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+    color: white;
+    padding: 6px 12px;
+    border-radius: 15px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.online-users-page .success-row {
+    background: rgba(40, 167, 69, 0.05);
+}
+
+.online-users-page .danger-row {
+    background: rgba(220, 53, 69, 0.05);
+}
+
+.online-users-page .warning-row {
+    background: rgba(255, 193, 7, 0.05);
+}
+
+.online-users-page .no-data-row {
+    padding: 40px 20px;
+}
+
+.online-users-page .no-data-content {
+    text-align: center;
+    color: #6c757d;
+}
+
+.online-users-page .no-data-content i {
+    font-size: 3rem;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.online-users-page .no-data-content p {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+/* Comparison Analysis Styles */
+.online-users-page .comparison-grid {
+    display: flex;
+    gap: 30px;
+    margin-bottom: 30px;
+    flex-wrap: wrap;
+}
+
+.online-users-page .comparison-card {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    height: 100%;
+    position: relative;
+    overflow: hidden;
+    flex: 1;
+    min-height: 120px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.online-users-page .comparison-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.online-users-page .comparison-card:hover {
+    transform: translateY(-10px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.15);
+}
+
+.online-users-page .comparison-card .card-header {
+    background: transparent;
+    color: #2c3e50;
+    padding: 0 0 15px 0;
+    border-bottom: 1px solid #e9ecef;
+    margin-bottom: 15px;
+}
+
+.online-users-page .comparison-card .header-title {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.online-users-page .comparison-card .header-title i {
+    font-size: 1.5rem;
+    color: #667eea;
+}
+
+.online-users-page .comparison-card .header-title h4 {
+    margin: 0;
+    font-weight: 600;
+    font-size: 1.1rem;
+    color: #2c3e50;
+}
+
+.online-users-page .comparison-card .card-body {
+    padding: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 25px;
+}
+
+.online-users-page .success-message {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 20px;
+    background: rgba(40, 167, 69, 0.1);
+    border-radius: 15px;
+    color: #28a745;
+}
+
+.online-users-page .success-message i {
+    font-size: 1.5rem;
+}
+
+.online-users-page .success-message p {
+    margin: 0;
+    font-weight: 500;
+}
+
+.online-users-page .user-list {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.online-users-page .user-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px;
+    border-radius: 15px;
+    transition: all 0.3s ease;
+}
+
+.online-users-page .user-item.danger {
+    background: rgba(220, 53, 69, 0.1);
+    border-left: 4px solid #dc3545;
+}
+
+.online-users-page .user-item.warning {
+    background: rgba(255, 193, 7, 0.1);
+    border-left: 4px solid #ffc107;
+}
+
+.online-users-page .user-item .user-info {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.online-users-page .user-item .user-avatar {
+    width: 30px;
+    height: 30px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 0.8rem;
+}
+
+.online-users-page .user-item .user-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.online-users-page .user-item .detail-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+.online-users-page .analysis-notes {
+    background: white;
+    border-radius: 20px;
+    padding: 25px;
+    box-shadow: 0 8px 25px rgba(0,0,0,0.1);
+}
+
+.online-users-page .notes-header {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 2px solid #f8f9fa;
+}
+
+.online-users-page .notes-header i {
+    font-size: 1.2rem;
+    color: #667eea;
+}
+
+.online-users-page .notes-header h4 {
+    margin: 0;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+.online-users-page .notes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.online-users-page .note-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 15px;
+    border-radius: 15px;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.online-users-page .note-item:hover {
+    background: #e9ecef;
+    transform: translateY(-2px);
+}
+
+.online-users-page .note-icon {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: white;
+    font-size: 1rem;
+}
+
+.online-users-page .note-icon.danger {
+    background: linear-gradient(135deg, #dc3545 0%, #e74c3c 100%);
+}
+
+.online-users-page .note-icon.warning {
+    background: linear-gradient(135deg, #ffc107 0%, #fd7e14 100%);
+}
+
+.online-users-page .note-icon.success {
+    background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+}
+
+.online-users-page .note-icon.info {
+    background: linear-gradient(135deg, #17a2b8 0%, #6f42c1 100%);
+}
+
+.online-users-page .note-content {
+    flex: 1;
+}
+
+.online-users-page .note-content strong {
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+/* Additional table cell styles for RADIUS users */
+.online-users-page .login-cell, .online-users-page .session-cell {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #6c757d;
+    font-weight: 500;
+}
+
+/* RADIUS Dashboard Card - Rounded Top */
+.online-users-page .stat-card.modern-card:first-child {
+    border-top-left-radius: 25px;
+    border-top-right-radius: 25px;
+}
+
+.online-users-page .stat-card.modern-card:first-child .card-content {
+    border-top-left-radius: 25px;
+    border-top-right-radius: 25px;
+}
+
+.online-users-page .stat-card.modern-card:first-child .card-glow {
+    border-top-left-radius: 25px;
+    border-top-right-radius: 25px;
+}
+
+/* Alternative: If you want to target by RADIUS icon specifically */
+.online-users-page .stat-card.modern-card .radius-icon {
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+}
+
+@media (max-width: 768px) {
+    .online-users-page .dashboard-hero {
+        flex-direction: column;
+        text-align: center;
+        gap: 20px;
+    }
+    
+    .online-users-page .hero-stats {
+        flex-direction: column;
+        gap: 15px;
+    }
+    
+    .online-users-page .stats-grid {
+        flex-direction: column;
+    }
+    
+    .online-users-page .stat-card {
+        margin-bottom: 20px;
+    }
+    
+    .online-users-page .section-header {
+        flex-direction: column;
+        gap: 15px;
+        text-align: center;
+    }
+    
+    .online-users-page .comparison-grid {
+        flex-wrap: wrap;
+    }
+    
+    .online-users-page .notes-grid {
+        grid-template-columns: 1fr;
+    }
+} 

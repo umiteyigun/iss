@@ -1,0 +1,324 @@
+<div class="content-wrapper">
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1>Package Management</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a href="/dashboard">Home</a></li>
+            <li class="breadcrumb-item active">Package Management</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="content">
+    <div class="container-fluid">
+      <!-- Filters and Actions -->
+      <div class="row mb-3">
+        <div class="col-md-6">
+          <div class="form-group">
+            <label for="searchTerm">Search Packages</label>
+            <div class="input-group">
+              <input 
+                type="text" 
+                class="form-control" 
+                id="searchTerm"
+                [(ngModel)]="searchTerm" 
+                (keyup.enter)="onSearch()"
+                placeholder="Search by name or description..."
+              >
+              <div class="input-group-append">
+                <button class="btn btn-outline-secondary" type="button" (click)="onSearch()">
+                  <i class="fa fa-search"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="col-md-3" *ngIf="isSuperAdmin">
+          <div class="form-group">
+            <label for="tenantSelect">Filter by Tenant</label>
+            <select 
+              class="form-control" 
+              id="tenantSelect"
+              [(ngModel)]="selectedTenantId" 
+              (change)="onTenantChange()"
+            >
+              <option [value]="null">All Tenants</option>
+              <option *ngFor="let tenant of tenants" [value]="tenant.id">
+                {{ tenant.name }}
+              </option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="col-md-3">
+          <div class="form-group">
+            <label>&nbsp;</label>
+            <div>
+              <button 
+                class="btn btn-primary" 
+                (click)="startAddPackage()"
+                [disabled]="!selectedTenantId && isSuperAdmin"
+              >
+                <i class="fa fa-plus"></i> Add Package
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Packages Table -->
+      <div class="card">
+        <div class="card-header">
+          <h3 class="card-title">Packages</h3>
+        </div>
+        <div class="card-body">
+          <div *ngIf="loading" class="text-center py-4">
+            <i class="fa fa-spinner fa-spin fa-2x"></i>
+            <p class="mt-2">Loading packages...</p>
+          </div>
+
+          <div *ngIf="!loading && packages.length === 0" class="text-center py-4">
+            <i class="fa fa-box-open fa-3x text-muted"></i>
+            <h4 class="mt-3 text-muted">No packages found</h4>
+            <p class="text-muted">
+              <span *ngIf="!selectedTenantId && isSuperAdmin">Select a tenant to create packages</span>
+              <span *ngIf="selectedTenantId || !isSuperAdmin">Create your first package to get started</span>
+            </p>
+            <button 
+              class="btn btn-primary mt-2" 
+              (click)="startAddPackage()"
+              [disabled]="!selectedTenantId && isSuperAdmin"
+            >
+              <i class="fa fa-plus"></i> Add First Package
+            </button>
+          </div>
+
+          <div *ngIf="!loading && packages.length > 0" class="table-responsive">
+            <table class="table table-bordered table-striped">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Download</th>
+                  <th>Upload</th>
+                  <th>Price</th>
+                  <th>Traffic</th>
+                  <th>Sat</th>
+                  <th>Tenant</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngFor="let packageItem of packages">
+                  <td>
+                    <strong>{{ packageItem.name || '-' }}</strong>
+                  </td>
+                  <td>{{ packageItem.download || '-' }}</td>
+                  <td>{{ packageItem.upload || '-' }}</td>
+                  <td>{{ formatPrice(packageItem.price) }}</td>
+                  <td>{{ packageItem.traffic || '-' }}</td>
+                  <td>{{ packageItem.sat || '-' }}</td>
+                  <td>{{ packageItem.tenant?.name || '-' }}</td>
+                  <td>
+                    <div class="btn-group btn-group-sm">
+                      <button 
+                        class="btn btn-info btn-sm" 
+                        (click)="startEditPackage(packageItem)"
+                        title="Edit Package"
+                      >
+                        <i class="fa fa-edit"></i>
+                      </button>
+                      <button 
+                        class="btn btn-danger btn-sm" 
+                        (click)="deletePackage(packageItem)"
+                        title="Delete Package"
+                      >
+                        <i class="fa fa-trash"></i>
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- Pagination -->
+          <div *ngIf="!loading && packages.length > 0" class="row mt-3">
+            <div class="col-sm-12 col-md-5">
+              <div class="dataTables_info">
+                Showing {{ (currentPage - 1) * pageSize + 1 }} to 
+                {{ (currentPage * pageSize < totalItems) ? (currentPage * pageSize) : totalItems }} of 
+                {{ totalItems }} packages
+              </div>
+            </div>
+            <div class="col-sm-12 col-md-7">
+              <div class="dataTables_paginate paging_simple_numbers">
+                <ul class="pagination pagination-sm m-0 float-right">
+                  <li class="paginate_button page-item" [class.disabled]="currentPage === 1">
+                    <a class="page-link" (click)="onPageChange(currentPage - 1)">Previous</a>
+                  </li>
+                  <li 
+                    *ngFor="let page of [].constructor(totalPages); let i = index" 
+                    class="paginate_button page-item" 
+                    [class.active]="currentPage === i + 1"
+                  >
+                    <a class="page-link" (click)="onPageChange(i + 1)">{{ i + 1 }}</a>
+                  </li>
+                  <li class="paginate_button page-item" [class.disabled]="currentPage === totalPages">
+                    <a class="page-link" (click)="onPageChange(currentPage + 1)">Next</a>
+                  </li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- Package Add/Edit Modal -->
+<div class="modal fade" [class.show]="showPackageModal" [style.display]="showPackageModal ? 'block' : 'none'" tabindex="-1">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">
+          {{ isEditingPackage ? 'Edit Package' : 'Add New Package' }}
+        </h4>
+        <button type="button" class="close" (click)="cancelPackageEdit()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <form>
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="packageName">Package Name *</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="packageName"
+                  [(ngModel)]="packageForm.name" 
+                  name="name"
+                  required
+                >
+              </div>
+            </div>
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="packagePrice">Price (TRY) *</label>
+                <input 
+                  type="number" 
+                  class="form-control" 
+                  id="packagePrice"
+                  [(ngModel)]="packageForm.price" 
+                  name="price"
+                  min="0"
+                  required
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="download">Download Speed</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="download"
+                  [(ngModel)]="packageForm.download" 
+                  name="download"
+                  placeholder="e.g., 100Mbps"
+                >
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="upload">Upload Speed</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="upload"
+                  [(ngModel)]="packageForm.upload" 
+                  name="upload"
+                  placeholder="e.g., 50Mbps"
+                >
+              </div>
+            </div>
+            <div class="col-md-4">
+              <div class="form-group">
+                <label for="traffic">Traffic</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="traffic"
+                  [(ngModel)]="packageForm.traffic" 
+                  name="traffic"
+                  placeholder="e.g., 100GB"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label for="sat">Sat</label>
+                <input 
+                  type="text" 
+                  class="form-control" 
+                  id="sat"
+                  [(ngModel)]="packageForm.sat" 
+                  name="sat"
+                  placeholder="Sat value"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div class="form-group" *ngIf="isSuperAdmin">
+            <label for="packageTenant">Tenant</label>
+            <select 
+              class="form-control" 
+              id="packageTenant"
+              [(ngModel)]="packageForm.tenant_id" 
+              name="tenant_id"
+              required
+            >
+              <option value="">Select Tenant</option>
+              <option *ngFor="let tenant of tenants" [value]="tenant.id">
+                {{ tenant.name }}
+              </option>
+            </select>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="cancelPackageEdit()">
+          Cancel
+        </button>
+        <button 
+          type="button" 
+          class="btn btn-primary" 
+          (click)="savePackage()"
+          [disabled]="isPackageLoading"
+        >
+          <i *ngIf="isPackageLoading" class="fa fa-spinner fa-spin"></i>
+          {{ isEditingPackage ? 'Update Package' : 'Create Package' }}
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Backdrop -->
+<div *ngIf="showPackageModal" class="modal-backdrop fade show"></div>
