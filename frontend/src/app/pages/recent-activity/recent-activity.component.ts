@@ -57,7 +57,9 @@ export class RecentActivityComponent implements OnInit, OnDestroy, AfterViewInit
     
     this.fetchSessions();
     this.fetchUsers();
-    this.fetchTenants();
+    if (this.isSuperAdmin) {
+      this.fetchTenants();
+    }
   }
 
   ngAfterViewInit(): void {

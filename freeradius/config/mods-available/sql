@@ -1,0 +1,40 @@
+# MySQL auth/accounting — NAS via dynamic-clients (read_clients = no)
+sql {
+	dialect = "mysql"
+	driver = "rlm_sql_${dialect}"
+
+	server = "mysql"
+	port = 3306
+	login = "root"
+	password = "your_secure_password_here"
+	radius_db = "radius"
+
+	read_clients = no
+	client_table = "nas"
+	read_groups = no
+	read_profiles = no
+	delete_stale_sessions = yes
+
+	acct_table1 = "radacct"
+	acct_table2 = "radacct"
+	postauth_table = "radpostauth"
+	authcheck_table = "radcheck"
+	groupcheck_table = "radgroupcheck"
+	authreply_table = "radreply"
+	groupreply_table = "radgroupreply"
+	usergroup_table = "radusergroup"
+	group_attribute = "SQL-Group"
+
+	pool {
+		start = 2
+		min = 1
+		max = 10
+		spare = 1
+		uses = 0
+		retry_delay = 30
+		lifetime = 0
+		idle_timeout = 60
+	}
+
+	$INCLUDE ${modconfdir}/${.:name}/main/${dialect}/queries.conf
+}

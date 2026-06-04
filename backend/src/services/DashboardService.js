@@ -1,5 +1,6 @@
 const { Radcheck, Radacct, UsersInfo, NasDevice, Member, Tenant } = require('../models');
 const { Op } = require('sequelize');
+const { RADIUS_PASSWORD_ATTR } = require('../constants/radius');
 
 class DashboardService {
   /**
@@ -51,7 +52,7 @@ class DashboardService {
       // Total users (from radcheck with Cleartext-Password)
       const totalUsers = await Radcheck.count({
         where: { 
-          attribute: 'Cleartext-Password',
+          attribute: RADIUS_PASSWORD_ATTR,
           ...whereClause
         }
       });
@@ -63,7 +64,7 @@ class DashboardService {
         FROM radacct ra
         INNER JOIN radcheck rc ON ra.username = rc.username
         WHERE ra.acctstoptime IS NULL 
-        AND rc.attribute = 'Cleartext-password'
+        AND rc.attribute = '${RADIUS_PASSWORD_ATTR}'
         ${tenantId ? 'AND rc.tenant_id = :tenantId' : ''}
       `;
       
@@ -121,7 +122,7 @@ class DashboardService {
       // Get total users count
       const totalUsers = await Radcheck.count({
         where: {
-          attribute: 'Cleartext-password',
+          attribute: RADIUS_PASSWORD_ATTR,
           ...whereClause
         }
       });
@@ -132,7 +133,7 @@ class DashboardService {
         FROM radacct ra
         INNER JOIN radcheck rc ON ra.username = rc.username
         WHERE ra.acctstoptime IS NULL 
-        AND rc.attribute = 'Cleartext-password'
+        AND rc.attribute = '${RADIUS_PASSWORD_ATTR}'
         ${tenantId ? 'AND rc.tenant_id = :tenantId' : ''}
       `;
       

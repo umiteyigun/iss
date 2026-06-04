@@ -2,10 +2,18 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { FormsModule, ReactiveFormsModule, FormBuilder, FormGroup, Validators } from '@angular/forms';
-import { TranslateModule } from '@ngx-translate/core';
-import { IpService, IpPool, MetroIP } from '../../services/ip.service';
+import { TranslateModule, TranslateService } from '@ngx-translate/core';
+import {
+  IpService,
+  IpPool,
+  MetroIP,
+  NatMetroIpRequest,
+  METRO_IP_TYPE_BLOCK,
+  METRO_IP_TYPE_ROUTED
+} from '../../services/ip.service';
 import { TenantService } from '../../services/tenant.service';
 import { NasService, NasDevice } from '../../services/nas.service';
+import { UserService } from '../../services/user.service';
 
 @Component({
   selector: 'app-ip-management',
@@ -26,7 +34,9 @@ export class IpManagementComponent implements OnInit {
   currentPage = 1;
   pageSize = 10;
   totalPools = 0;
+  totalMetroItems = 0;
   totalPages = 0;
+  private pageClampRetry = false;
   
   // Search
   searchTerm = '';
@@ -66,23 +76,56 @@ export class IpManagementComponent implements OnInit {
   // Modals
   showIpPoolModal = false;
   showMetroIpModal = false;
+  showRouteModal = false;
+  showNatModal = false;
 
   // Forms
   ipPoolForm: FormGroup;
   metroIpForm: FormGroup;
+  routeForm: FormGroup;
+  natForm: FormGroup;
 
   // IP Preview
   ipPreview: any[] = [];
   metroIpPreview: any[] = [];
+  routeTargetMetroIp: MetroIP | null = null;
+  natTargetMetroIp: MetroIP | null = null;
+  userOptions: any[] = [];
+  routingInProgress = false;
+  natInProgress = false;
+  natLoadingExisting = false;
+  existingNatSummary = '';
+  existingNatHasRules = false;
+  natServiceOptions = [
+    { key: 'http', label: 'HTTP (80)' },
+    { key: 'https', label: 'HTTPS (443)' },
+    { key: 'ssh', label: 'SSH (22)' },
+    { key: 'rdp', label: 'RDP (3389)' },
+    { key: 'winbox', label: 'Winbox (8291)' },
+    { key: 'dns', label: 'DNS (53 TCP/UDP)' },
+    { key: 'smtp', label: 'SMTP (25)' },
+    { key: 'smtps', label: 'SMTPS (465)' },
+    { key: 'submission', label: 'SMTP Submission (587)' },
+    { key: 'pop3', label: 'POP3 (110)' },
+    { key: 'imap', label: 'IMAP (143)' },
+    { key: 'imaps', label: 'IMAPS (993)' },
+    { key: 'ftp', label: 'FTP (21)' }
+  ];
+  selectedNatServices: string[] = [];
+  customNatRules: Array<{ protocol: 'tcp' | 'udp'; port: string }> = [];
 
   constructor(
     private ipService: IpService,
     private tenantService: TenantService,
     private nasService: NasService,
-    private fb: FormBuilder
+    private userService: UserService,
+    private fb: FormBuilder,
+    private translate: TranslateService
   ) {
     this.ipPoolForm = this.createIpPoolForm();
     this.metroIpForm = this.createMetroIpForm();
+    this.routeForm = this.createRouteForm();
+    this.natForm = this.createNatForm();
   }
 
   ngOnInit(): void {
@@ -156,32 +199,66 @@ export class IpManagementComponent implements OnInit {
     });
   }
 
+  /** Port-split shared rows (e.g. .109 ×100) count as one logical WAN IP in stats */
+  private getLogicalMetroIPsForStats(metroIPs: MetroIP[]): MetroIP[] {
+    const logical: MetroIP[] = [];
+    const poolSegments = new Map<string, MetroIP[]>();
+
+    for (const metro of metroIPs) {
+      if (this.isPortSegmentedSharedIp(metro)) {
+        const key = `${metro.nasname}::${metro.ipaddress}`;
+        if (!poolSegments.has(key)) {
+          poolSegments.set(key, []);
+        }
+        poolSegments.get(key)!.push(metro);
+      } else {
+        logical.push(metro);
+      }
+    }
+
+    for (const segments of poolSegments.values()) {
+      const head = segments[0];
+      const assigned = segments.find((s) => this.isMetroUserAssigned(s.user));
+      logical.push({
+        ...head,
+        user: assigned?.user ?? '',
+        pool_segment_count: segments.length
+      });
+    }
+
+    return logical;
+  }
+
   loadMetroIpStats(): void {
     this.ipService.getMetroIPs({
       page: 1,
-      limit: 1000, // Get all for stats
+      limit: 10000,
       search: this.searchTerm,
       tenantId: this.selectedTenantId,
       metroIpFilter: this.metroIpFilter,
       ipAddressFilter: this.ipAddressFilter,
-      nasNameFilter: this.nasNameFilter
+      nasNameFilter: this.nasNameFilter,
+      routerNatSync: false
     }).subscribe({
       next: (response) => {
         if (response.success) {
           const metroIPs = response.data.metroips || [];
-          const staticIPs = metroIPs.filter((metro: any) => metro.ip_type === 0);
-          const sharedIPs = metroIPs.filter((metro: any) => metro.ip_type === 1);
-          
+          const logicalIPs = this.getLogicalMetroIPsForStats(metroIPs);
+          const staticIPs = logicalIPs.filter(
+            (metro) => Number(metro.ip_type) === 0 && !this.isMetroBlockEntry(metro)
+          );
+          const sharedIPs = logicalIPs.filter((metro) => Number(metro.ip_type) === 1);
+
           this.metroIpStats = {
-            total: metroIPs.length,
-            available: metroIPs.filter((metro: any) => !metro.user).length,
-            inUse: metroIPs.filter((metro: any) => metro.user).length,
+            total: logicalIPs.length,
+            available: logicalIPs.filter((metro) => !this.isMetroIpInUse(metro)).length,
+            inUse: logicalIPs.filter((metro) => this.isMetroIpInUse(metro)).length,
             static: staticIPs.length,
-            staticAvailable: staticIPs.filter((metro: any) => !metro.user).length,
-            staticInUse: staticIPs.filter((metro: any) => metro.user).length,
+            staticAvailable: staticIPs.filter((metro) => !this.isMetroIpInUse(metro)).length,
+            staticInUse: staticIPs.filter((metro) => this.isMetroIpInUse(metro)).length,
             shared: sharedIPs.length,
-            sharedAvailable: sharedIPs.filter((metro: any) => !metro.user).length,
-            sharedInUse: sharedIPs.filter((metro: any) => metro.user).length
+            sharedAvailable: sharedIPs.filter((metro) => !this.isMetroIpInUse(metro)).length,
+            sharedInUse: sharedIPs.filter((metro) => this.isMetroIpInUse(metro)).length
           };
         }
       },
@@ -243,15 +320,22 @@ export class IpManagementComponent implements OnInit {
         console.log('📊 MetroIP API Response:', response);
 
         if (response.success) {
-          console.log('📊 MetroIP Response data:', response.data);
+          const pagination = response.data.pagination;
+          this.totalMetroItems = pagination?.total || 0;
+          this.totalPages = pagination?.pages || 0;
+          const apiPage = pagination?.page || this.currentPage;
+
+          if (this.totalPages > 0 && apiPage !== this.currentPage) {
+            this.currentPage = apiPage;
+            if (!this.pageClampRetry) {
+              this.pageClampRetry = true;
+              this.loadMetroIPs();
+              return;
+            }
+          }
+          this.pageClampRetry = false;
+
           this.metroIPs = response.data.metroips || [];
-          this.totalPools = response.data.pagination?.total || 0;
-          this.totalPages = response.data.pagination?.pages || 0;
-          console.log('✅ MetroIPs loaded:', this.metroIPs.length, 'records');
-          console.log('✅ Total MetroIPs:', this.totalPools);
-          console.log('✅ Total pages:', this.totalPages);
-          
-          // Load stats after data is loaded
           this.loadMetroIpStats();
         } else {
           console.error('❌ MetroIP API returned success: false');
@@ -267,12 +351,18 @@ export class IpManagementComponent implements OnInit {
 
   onSearch(): void {
     this.currentPage = 1;
+    this.pageClampRetry = false;
     this.loadData();
   }
 
   onMetroIpFilterChange(): void {
     this.currentPage = 1;
+    this.pageClampRetry = false;
     this.loadData();
+  }
+
+  applyMetroIpFilters(): void {
+    this.onSearch();
   }
 
   clearMetroIpFilters(): void {
@@ -280,6 +370,7 @@ export class IpManagementComponent implements OnInit {
     this.ipAddressFilter = '';
     this.nasNameFilter = '';
     this.currentPage = 1;
+    this.pageClampRetry = false;
     this.loadData();
   }
 
@@ -302,8 +393,32 @@ export class IpManagementComponent implements OnInit {
   }
 
   onPageChange(page: number): void {
+    if (page < 1 || (this.totalPages > 0 && page > this.totalPages)) {
+      return;
+    }
     this.currentPage = page;
+    this.pageClampRetry = false;
     this.loadData();
+  }
+
+  getPaginationTotal(): number {
+    return this.activeTab === 'metroips' ? this.totalMetroItems : this.totalPools;
+  }
+
+  getPaginationFrom(): number {
+    const total = this.getPaginationTotal();
+    if (total === 0) {
+      return 0;
+    }
+    return (this.currentPage - 1) * this.pageSize + 1;
+  }
+
+  getPaginationTo(): number {
+    return this.getMin(this.currentPage * this.pageSize, this.getPaginationTotal());
+  }
+
+  showPagination(): boolean {
+    return !this.loading && this.getPaginationTotal() > 0 && this.totalPages > 1;
   }
 
   onTabChange(tab: string): void {
@@ -315,12 +430,25 @@ export class IpManagementComponent implements OnInit {
 
   getPageNumbers(): number[] {
     const pages: number[] = [];
-    const maxPages = Math.min(this.totalPages, 5);
-    
-    for (let i = 1; i <= maxPages; i++) {
+    const windowSize = 5;
+
+    if (this.totalPages <= 0) {
+      return pages;
+    }
+
+    const halfWindow = Math.floor(windowSize / 2);
+    let startPage = Math.max(1, this.currentPage - halfWindow);
+    let endPage = startPage + windowSize - 1;
+
+    if (endPage > this.totalPages) {
+      endPage = this.totalPages;
+      startPage = Math.max(1, endPage - windowSize + 1);
+    }
+
+    for (let i = startPage; i <= endPage; i++) {
       pages.push(i);
     }
-    
+
     return pages;
   }
 
@@ -350,27 +478,280 @@ export class IpManagementComponent implements OnInit {
 
   getStatusText(ipPool: IpPool): string {
     if (ipPool.username) {
-      return 'In Use';
+      return 'ip_management.in_use';
     }
-    return 'Available';
+    return 'ip_management.available';
   }
 
   getMetroIpStatusBadgeClass(metroIP: MetroIP): string {
-    if (metroIP.user) {
+    if (this.isMetroBlockEntry(metroIP)) {
+      return 'badge-secondary';
+    }
+    if (this.isMetroIpInUse(metroIP)) {
       return 'badge badge-danger'; // In Use - Red
     }
     return 'badge badge-success'; // Available - Green
   }
 
   getMetroIpStatusText(metroIP: MetroIP): string {
-    if (metroIP.user) {
-      return 'In Use';
+    if (this.isMetroIpInUse(metroIP)) {
+      return 'ip_management.metro_status_occupied';
     }
-    return 'Available';
+    return 'ip_management.metro_status_free';
+  }
+
+  private isMetroUserAssigned(userValue: any): boolean {
+    if (userValue === null || userValue === undefined) {
+      return false;
+    }
+
+    const normalized = String(userValue).trim().toLowerCase();
+    return normalized !== '' && normalized !== '-' && normalized !== 'null';
+  }
+
+  private isMetroIpInUse(metroIP: MetroIP): boolean {
+    if (this.isMetroBlockEntry(metroIP)) {
+      return true;
+    }
+    if (this.isPortSegmentedSharedIp(metroIP)) {
+      return this.isMetroUserAssigned(metroIP?.user);
+    }
+    return this.isMetroUserAssigned(metroIP?.user) || this.isMetroManagedNatEntry(metroIP);
+  }
+
+  isPortSegmentedSharedIp(metroIP: MetroIP): boolean {
+    if (!metroIP) {
+      return false;
+    }
+    if (metroIP.is_shared_src_pool === true) {
+      return true;
+    }
+
+    const ports = String(metroIP?.ports || '').trim();
+    if (!ports || ports === '-') {
+      return false;
+    }
+    if (ports === '1-65000' || ports === '1-65535') {
+      return false;
+    }
+
+    return Number(metroIP?.ip_type) === 1 && /^\d+-\d+$/.test(ports);
+  }
+
+  isMetroManagedNatEntry(metroIP: MetroIP): boolean {
+    if (
+      !metroIP?.nat_in_use ||
+      this.isMetroBlockEntry(metroIP) ||
+      this.isMetroRoutedEntry(metroIP) ||
+      this.isPortSegmentedSharedIp(metroIP)
+    ) {
+      return false;
+    }
+    if (metroIP.nat_has_dst === true) {
+      return true;
+    }
+    if (Array.isArray(metroIP.nat_dst_ports) && metroIP.nat_dst_ports.length > 0) {
+      return true;
+    }
+    const natType = String(metroIP.nat_type || '').toLowerCase();
+    if (natType === 'dst' || natType === 'both') {
+      return true;
+    }
+    if (metroIP.nat_src_full && !metroIP.nat_has_dst) {
+      return false;
+    }
+    return metroIP.nat_in_use === true;
+  }
+
+  canRouteMetroIp(metroIP: MetroIP): boolean {
+    if (this.isMetroBlockEntry(metroIP) || this.isPortSegmentedSharedIp(metroIP)) {
+      return false;
+    }
+    return !this.isMetroIpInUse(metroIP);
+  }
+
+  canManageNat(metroIP: MetroIP): boolean {
+    if (this.isMetroBlockEntry(metroIP) || this.isPortSegmentedSharedIp(metroIP)) {
+      return false;
+    }
+    return this.canRouteMetroIp(metroIP) || metroIP?.nat_in_use === true;
+  }
+
+  canClearRoute(metroIP: MetroIP): boolean {
+    if (this.isMetroBlockEntry(metroIP) || this.isPortSegmentedSharedIp(metroIP)) {
+      return false;
+    }
+    return metroIP?.binding_type === 'routed' && this.isMetroUserAssigned(metroIP?.user);
+  }
+
+  isMetroRoutedEntry(metroIP: MetroIP): boolean {
+    if (this.isMetroBlockEntry(metroIP) || this.isPortSegmentedSharedIp(metroIP)) {
+      return false;
+    }
+    return Number(metroIP?.ip_type) === METRO_IP_TYPE_ROUTED;
+  }
+
+  isMetroNatEntry(metroIP: MetroIP): boolean {
+    return this.isMetroManagedNatEntry(metroIP);
+  }
+
+  isMetroSharedSrcPoolEntry(metroIP: MetroIP): boolean {
+    return this.isPortSegmentedSharedIp(metroIP);
+  }
+
+  shouldShowBindingBadge(metroIP: MetroIP): boolean {
+    if (
+      this.isMetroBlockEntry(metroIP) ||
+      this.isMetroRoutedEntry(metroIP) ||
+      this.isMetroNatEntry(metroIP)
+    ) {
+      return false;
+    }
+    return !this.canRouteMetroIp(metroIP);
+  }
+
+  getMetroIpTypeLabel(metroIP: MetroIP): string {
+    if (this.isMetroBlockEntry(metroIP)) {
+      return 'ip_management.block_cidr';
+    }
+    if (this.isMetroSharedSrcPoolEntry(metroIP)) {
+      return 'ip_management.shared_src';
+    }
+    if (this.isMetroRoutedEntry(metroIP)) {
+      return 'ip_management.routed';
+    }
+    if (this.isMetroNatEntry(metroIP)) {
+      return 'ip_management.type_nat';
+    }
+    if (Number(metroIP.ip_type) === 1) {
+      return 'ip_management.shared';
+    }
+    return 'ip_management.static';
+  }
+
+  getMetroIpTypeBadgeClass(metroIP: MetroIP): string {
+    if (this.isMetroBlockEntry(metroIP)) {
+      return 'badge badge-block';
+    }
+    if (this.isMetroSharedSrcPoolEntry(metroIP)) {
+      return 'badge badge-shared-src';
+    }
+    if (this.isMetroRoutedEntry(metroIP)) {
+      return 'badge badge-routed';
+    }
+    if (this.isMetroNatEntry(metroIP)) {
+      return 'badge badge-nat';
+    }
+    if (Number(metroIP.ip_type) === 1) {
+      return 'badge badge-warning';
+    }
+    return 'badge badge-info';
+  }
+
+  getMetroIpRouteInfo(metroIP: MetroIP): string {
+    if (this.isMetroBlockEntry(metroIP)) {
+      const note = (metroIP.notes || metroIP.block_label || '').trim();
+      const hosts =
+        metroIP.block_host_count != null
+          ? this.tr('ip_management.block_hosts_suffix', {
+              count: metroIP.block_host_count
+            })
+          : '';
+      return note
+        ? `${note}${hosts}`
+        : `${this.tr('ip_management.block_reserved')}${hosts}`;
+    }
+    if (metroIP?.nat_in_use === true && !this.isMetroUserAssigned(metroIP.user)) {
+      if (metroIP.nat_summary) {
+        return metroIP.nat_summary;
+      }
+      return metroIP?.nat_local_ip
+        ? this.tr('ip_management.nat_in_use_with_local', { ip: metroIP.nat_local_ip })
+        : this.tr('ip_management.nat_in_use_label');
+    }
+
+    if (!this.isMetroIpInUse(metroIP)) {
+      return this.tr('ip_management.route_not_routed');
+    }
+
+    if (metroIP.binding_type === 'routed') {
+      return this.tr('ip_management.route_routed_to', { user: metroIP.user });
+    }
+
+    return this.tr('ip_management.route_assigned_to', { user: metroIP.user });
+  }
+
+  getMetroIpBindingLabel(metroIP: MetroIP): string {
+    if (this.isPortSegmentedSharedIp(metroIP)) {
+      return 'ip_management.binding_shared_port_ip';
+    }
+
+    if (metroIP?.nat_in_use === true && !this.isMetroUserAssigned(metroIP.user)) {
+      if (metroIP.nat_type === 'both' && metroIP.nat_src_full) {
+        return 'ip_management.binding_src_full_dst';
+      }
+      if (metroIP.nat_type === 'src' || metroIP.nat_src_full) {
+        return 'ip_management.binding_src_full';
+      }
+      return 'ip_management.binding_nat_in_use';
+    }
+
+    if (!this.isMetroIpInUse(metroIP)) {
+      return 'ip_management.binding_unassigned';
+    }
+
+    return metroIP.binding_type === 'routed'
+      ? 'ip_management.binding_routed'
+      : 'ip_management.binding_assigned';
+  }
+
+  private tr(key: string, params?: Record<string, unknown>): string {
+    return this.translate.instant(key, params);
   }
 
   getMin(a: number, b: number): number {
     return Math.min(a, b);
+  }
+
+  editMetroIpNotes(metroIp: MetroIP): void {
+    const current = metroIp.notes || '';
+    const updated = window.prompt(this.tr('ip_management.notes_prompt'), current);
+    if (updated === null) {
+      return;
+    }
+
+    this.ipService.updateMetroIP(metroIp.id, { notes: updated.trim() }).subscribe({
+      next: (response) => {
+        if (response?.success) {
+          metroIp.notes = updated.trim() || undefined;
+          const sync = response?.data?.routerSync;
+          if (this.isMetroBlockEntry(metroIp) || sync?.reason === 'block_reserve') {
+            alert(this.tr('ip_management.alert_notes_saved'));
+          } else if (sync && !sync.skipped && !sync.error) {
+            alert(
+              this.tr('ip_management.alert_notes_saved_sync', {
+                nat: sync.updatedNat || 0,
+                routes: sync.updatedRoutes || 0
+              })
+            );
+          } else if (sync?.error) {
+            alert(
+              this.tr('ip_management.alert_notes_saved_sync_failed', {
+                error: sync.error
+              })
+            );
+          } else if (sync?.skipped) {
+            alert(this.tr('ip_management.alert_notes_saved'));
+          }
+        } else {
+          alert(response?.message || this.tr('ip_management.alert_notes_update_failed'));
+        }
+      },
+      error: (error) => {
+        console.error('Update notes error:', error);
+        alert(error?.error?.message || this.tr('ip_management.alert_notes_update_failed'));
+      }
+    });
   }
 
   // Form Creation Methods
@@ -385,11 +766,39 @@ export class IpManagementComponent implements OnInit {
 
   private createMetroIpForm(): FormGroup {
     return this.fb.group({
+      add_mode: ['expand', Validators.required],
       nas_id: ['', Validators.required],
       ipaddress: ['', Validators.required],
       client_count: [''],
       ip_type: ['', Validators.required],
+      reserve_label: [''],
       tenant_id: ['']
+    });
+  }
+
+  isBlockReserveMode(): boolean {
+    return this.metroIpForm.get('add_mode')?.value === 'block_reserve';
+  }
+
+  isMetroBlockEntry(metroIP: MetroIP): boolean {
+    return Number(metroIP?.ip_type) === METRO_IP_TYPE_BLOCK || metroIP?.is_block === true;
+  }
+
+  private createRouteForm(): FormGroup {
+    return this.fb.group({
+      routerId: ['', Validators.required],
+      username: ['', Validators.required],
+      notes: ['']
+    });
+  }
+
+  private createNatForm(): FormGroup {
+    return this.fb.group({
+      routerId: ['', Validators.required],
+      username: [''],
+      natLocalIp: ['', Validators.required],
+      natType: ['both'],
+      dstNatServiceMode: ['none']
     });
   }
 
@@ -416,6 +825,429 @@ export class IpManagementComponent implements OnInit {
     this.showMetroIpModal = false;
     this.metroIpForm.reset();
     this.metroIpPreview = [];
+  }
+
+  openRouteModal(metroIp: MetroIP): void {
+    if (!this.canRouteMetroIp(metroIp) && !this.canClearRoute(metroIp)) {
+      if (this.isPortSegmentedSharedIp(metroIp)) {
+        alert(this.tr('ip_management.alert_route_not_allowed_port_split'));
+      }
+      return;
+    }
+
+    this.closeNatModal();
+    this.routeTargetMetroIp = metroIp;
+    this.showRouteModal = true;
+    this.routeForm = this.createRouteForm();
+    if (metroIp.notes) {
+      this.routeForm.patchValue({ notes: metroIp.notes });
+    }
+    const matchedRouter = this.nasDevices.find(
+      (nas) => nas.shortname === metroIp.nasname || nas.nasname === metroIp.nasname
+    );
+    if (matchedRouter) {
+      this.routeForm.patchValue({ routerId: matchedRouter.id });
+    }
+    this.userOptions = [];
+    this.routingInProgress = false;
+    this.loadRouteUsers();
+  }
+
+  closeRouteModal(): void {
+    this.showRouteModal = false;
+    this.routeTargetMetroIp = null;
+    this.routeForm.reset();
+    this.userOptions = [];
+    this.routingInProgress = false;
+  }
+
+  openNatModal(metroIp: MetroIP): void {
+    if (!this.canManageNat(metroIp)) {
+      if (this.isPortSegmentedSharedIp(metroIp)) {
+        alert(this.tr('ip_management.alert_nat_not_allowed_port_split'));
+      }
+      return;
+    }
+
+    this.closeRouteModal();
+    this.natTargetMetroIp = metroIp;
+    this.showNatModal = true;
+    this.natForm = this.createNatForm();
+    this.userOptions = [];
+    this.natInProgress = false;
+    this.selectedNatServices = [];
+    this.customNatRules = [];
+
+    if (this.isMetroUserAssigned(metroIp.user)) {
+      this.natForm.patchValue({ username: metroIp.user });
+    }
+
+    const matchedRouter = this.nasDevices.find(
+      nas => nas.shortname === metroIp.nasname || nas.nasname === metroIp.nasname
+    );
+    if (matchedRouter) {
+      this.natForm.patchValue({ routerId: matchedRouter.id });
+      this.loadExistingNatConfig();
+    }
+
+    this.loadRouteUsers();
+  }
+
+  closeNatModal(): void {
+    this.showNatModal = false;
+    this.natTargetMetroIp = null;
+    this.natForm.reset();
+    this.natForm.patchValue({
+      natType: 'both',
+      dstNatServiceMode: 'none'
+    });
+    this.userOptions = [];
+    this.natInProgress = false;
+    this.natLoadingExisting = false;
+    this.existingNatSummary = '';
+    this.existingNatHasRules = false;
+    this.selectedNatServices = [];
+    this.customNatRules = [];
+  }
+
+  onNatRouterChange(): void {
+    this.loadExistingNatConfig();
+  }
+
+  private loadExistingNatConfig(): void {
+    if (!this.natTargetMetroIp) {
+      return;
+    }
+
+    const routerId = Number(this.natForm.get('routerId')?.value);
+    if (!routerId) {
+      this.existingNatSummary = '';
+      this.existingNatHasRules = false;
+      return;
+    }
+
+    this.natLoadingExisting = true;
+    this.existingNatSummary = '';
+
+    this.ipService.getMetroIpNatConfig(this.natTargetMetroIp.id, routerId).subscribe({
+      next: (response) => {
+        this.natLoadingExisting = false;
+        if (!response?.success || !response.data) {
+          return;
+        }
+
+        const config = response.data;
+        this.existingNatHasRules = Boolean(config.hasExisting);
+        if (!config.hasExisting) {
+          this.existingNatSummary = 'No existing NAT rules found on router for this public IP.';
+          return;
+        }
+
+        this.natForm.patchValue({
+          natLocalIp: config.natLocalIp || this.natForm.get('natLocalIp')?.value,
+          natType: config.natType || 'both',
+          dstNatServiceMode: config.dstNatServiceMode || 'none'
+        });
+
+        this.selectedNatServices = [...(config.selectedServices || [])];
+        this.customNatRules = (config.customNatRules || []).map(rule => ({
+          protocol: rule.protocol === 'udp' ? 'udp' : 'tcp',
+          port: String(rule.port || '')
+        }));
+
+        const portsText = (config.existingPorts || []).join(', ');
+        this.existingNatSummary = config.summary
+          || `Loaded ${config.existingRuleCount} rule(s) from router.${portsText ? ` Ports: ${portsText}` : ''}`;
+      },
+      error: (error) => {
+        this.natLoadingExisting = false;
+        console.error('Load existing NAT config error:', error);
+        this.existingNatSummary = 'Could not load existing NAT rules from router.';
+        this.existingNatHasRules = false;
+      }
+    });
+  }
+
+  private loadRouteUsers(): void {
+    this.userService.getUsers(1, 1000, '', this.selectedTenantId || undefined).subscribe({
+      next: (response) => {
+        if (response?.success) {
+          this.userOptions = response.data?.users || [];
+        }
+      },
+      error: (error) => {
+        console.error('Error loading users for routing:', error);
+      }
+    });
+  }
+
+  onDstNatServiceModeChange(): void {
+    const mode = this.natForm.get('dstNatServiceMode')?.value;
+    if (mode !== 'selected') {
+      this.selectedNatServices = [];
+    }
+    if (mode !== 'custom') {
+      this.customNatRules = [];
+    }
+  }
+
+  onNatTypeChange(): void {
+    const natType = this.natForm.get('natType')?.value;
+    if (natType === 'src') {
+      this.natForm.patchValue({ dstNatServiceMode: 'none' });
+      this.selectedNatServices = [];
+      this.customNatRules = [];
+    }
+  }
+
+  toggleNatService(serviceKey: string): void {
+    if (this.selectedNatServices.includes(serviceKey)) {
+      this.selectedNatServices = this.selectedNatServices.filter(key => key !== serviceKey);
+      return;
+    }
+    this.selectedNatServices = [...this.selectedNatServices, serviceKey];
+  }
+
+  addCustomNatRule(): void {
+    this.customNatRules = [...this.customNatRules, { protocol: 'tcp', port: '' }];
+  }
+
+  removeCustomNatRule(index: number): void {
+    this.customNatRules = this.customNatRules.filter((_, i) => i !== index);
+  }
+
+  updateCustomNatRulePort(index: number, port: string): void {
+    this.customNatRules = this.customNatRules.map((rule, i) =>
+      i === index ? { ...rule, port } : rule
+    );
+  }
+
+  updateCustomNatRuleProtocol(index: number, protocol: 'tcp' | 'udp'): void {
+    this.customNatRules = this.customNatRules.map((rule, i) =>
+      i === index ? { ...rule, protocol } : rule
+    );
+  }
+
+  private isNatFormReadyForSubmit(): boolean {
+    if (!this.natTargetMetroIp || this.natForm.invalid || this.natInProgress) {
+      return false;
+    }
+
+    const natType = this.natForm.get('natType')?.value;
+    const dstNatServiceMode = this.natForm.get('dstNatServiceMode')?.value;
+    const natLocalIp = String(this.natForm.get('natLocalIp')?.value || '').trim();
+
+    if (!natLocalIp) {
+      return false;
+    }
+
+    const needsDstConfig = (natType === 'dst' || natType === 'both') && dstNatServiceMode !== 'none';
+    if (!needsDstConfig) {
+      return true;
+    }
+
+    if (dstNatServiceMode === 'selected' && this.selectedNatServices.length === 0) {
+      return false;
+    }
+
+    if (dstNatServiceMode === 'custom') {
+      if (this.customNatRules.length === 0) {
+        return false;
+      }
+      return this.customNatRules.every(rule => String(rule.port || '').trim() !== '');
+    }
+
+    return true;
+  }
+
+  routeSelectedMetroIp(): void {
+    if (!this.routeTargetMetroIp || this.routeForm.invalid || this.routingInProgress) {
+      return;
+    }
+
+    const targetMetroIp = this.routeTargetMetroIp;
+    const { routerId, username, notes } = this.routeForm.value;
+    this.routingInProgress = true;
+
+    const payload: { routerId: number; username: string; notes?: string } = {
+      routerId: Number(routerId),
+      username: String(username)
+    };
+    const noteText = String(notes || '').trim();
+    if (noteText) {
+      payload.notes = noteText;
+    }
+
+    this.ipService.routeMetroIP(targetMetroIp.id, payload).subscribe({
+      next: (response) => {
+        this.routingInProgress = false;
+        if (response?.success) {
+          this.closeRouteModal();
+          this.loadMetroIPs();
+          alert(
+            this.tr('ip_management.alert_route_created', {
+              ip: targetMetroIp.ipaddress,
+              user: username
+            })
+          );
+        } else {
+          alert(response?.message || this.tr('ip_management.alert_route_operation_failed'));
+        }
+      },
+      error: (error) => {
+        this.routingInProgress = false;
+        console.error('Route metro IP error:', error);
+        alert(error?.error?.message || this.tr('ip_management.alert_route_operation_failed'));
+      }
+    });
+  }
+
+  clearRouteFromMetroIp(): void {
+    const targetMetroIp = this.routeTargetMetroIp;
+    if (!targetMetroIp || this.routingInProgress) {
+      return;
+    }
+
+    if (!this.canClearRoute(targetMetroIp)) {
+      alert(this.tr('ip_management.alert_route_clear_routed_only'));
+      return;
+    }
+
+    const routerId = Number(this.routeForm.get('routerId')?.value);
+    if (!routerId) {
+      alert(this.tr('ip_management.alert_select_router_first'));
+      return;
+    }
+
+    this.routingInProgress = true;
+    this.ipService.clearMetroIpRoute(targetMetroIp.id, routerId).subscribe({
+      next: (response) => {
+        this.routingInProgress = false;
+        if (response?.success) {
+          const deleted = response?.data?.deletedRoutes || 0;
+          this.closeRouteModal();
+          this.loadMetroIPs();
+          alert(
+            this.tr('ip_management.alert_route_cleared', {
+              ip: targetMetroIp.ipaddress,
+              count: deleted
+            })
+          );
+        } else {
+          alert(response?.message || this.tr('ip_management.alert_route_clear_failed'));
+        }
+      },
+      error: (error) => {
+        this.routingInProgress = false;
+        console.error('Clear route error:', error);
+        alert(error?.error?.message || this.tr('ip_management.alert_route_clear_failed'));
+      }
+    });
+  }
+
+  applyNatToMetroIp(): void {
+    if (!this.isNatFormReadyForSubmit()) {
+      return;
+    }
+
+    const targetMetroIp = this.natTargetMetroIp;
+    if (!targetMetroIp) {
+      return;
+    }
+
+    const { routerId, username, natType, natLocalIp, dstNatServiceMode } = this.natForm.value;
+    this.natInProgress = true;
+
+    const payload: NatMetroIpRequest = {
+      routerId: Number(routerId),
+      natLocalIp: String(natLocalIp || '').trim(),
+      natType,
+      dstNatServiceMode,
+      selectedServices: [...this.selectedNatServices],
+      customNatRules: this.customNatRules
+        .map(rule => ({
+          protocol: rule.protocol,
+          port: String(rule.port || '').trim()
+        }))
+        .filter(rule => rule.port !== ''),
+      replaceExisting: true
+    };
+
+    const normalizedUsername = String(username || '').trim();
+    if (normalizedUsername) {
+      payload.username = normalizedUsername;
+    }
+
+    this.ipService.natMetroIP(targetMetroIp.id, payload).subscribe({
+      next: (response) => {
+        this.natInProgress = false;
+        if (response?.success) {
+          this.closeNatModal();
+          const removed = response?.data?.nat?.removedExisting || 0;
+          const created = (response?.data?.nat?.createdNatRules || []).filter((rule: any) => !rule.skipped).length;
+          alert(
+            this.tr('ip_management.alert_nat_updated', {
+              ip: targetMetroIp.ipaddress,
+              removed,
+              created
+            })
+          );
+        } else {
+          alert(response?.message || this.tr('ip_management.alert_nat_operation_failed'));
+        }
+      },
+      error: (error) => {
+        this.natInProgress = false;
+        console.error('NAT metro IP error:', error);
+        alert(error?.error?.message || this.tr('ip_management.alert_nat_operation_failed'));
+      }
+    });
+  }
+
+  clearNatFromMetroIp(): void {
+    const targetMetroIp = this.natTargetMetroIp;
+    if (!targetMetroIp || this.natInProgress) {
+      return;
+    }
+
+    const routerId = Number(this.natForm.get('routerId')?.value);
+    if (!routerId) {
+      alert(this.tr('ip_management.alert_select_router_first'));
+      return;
+    }
+
+    this.natInProgress = true;
+    this.ipService.clearMetroIpNat(targetMetroIp.id, routerId).subscribe({
+      next: (response) => {
+        this.natInProgress = false;
+        if (response?.success) {
+          const deleted = response?.data?.deletedRules || 0;
+          this.closeNatModal();
+          this.loadMetroIPs();
+          alert(
+            this.tr('ip_management.alert_nat_cleared', {
+              ip: targetMetroIp.ipaddress,
+              count: deleted
+            })
+          );
+        } else {
+          alert(response?.message || this.tr('ip_management.alert_nat_clear_failed'));
+        }
+      },
+      error: (error) => {
+        this.natInProgress = false;
+        console.error('Clear NAT error:', error);
+        alert(error?.error?.message || this.tr('ip_management.alert_nat_clear_failed'));
+      }
+    });
+  }
+
+  canSubmitRouteForm(): boolean {
+    return Boolean(this.routeTargetMetroIp) && this.routeForm.valid && !this.routingInProgress;
+  }
+
+  canSubmitNatForm(): boolean {
+    return this.isNatFormReadyForSubmit();
   }
 
   // Load Tenants
@@ -465,12 +1297,58 @@ export class IpManagementComponent implements OnInit {
     }
   }
 
+  onMetroAddModeChange(): void {
+    const mode = this.metroIpForm.get('add_mode')?.value;
+    if (mode === 'block_reserve') {
+      this.metroIpForm.patchValue({ ip_type: String(METRO_IP_TYPE_BLOCK), client_count: '' });
+      this.metroIpForm.get('reserve_label')?.setValidators([Validators.required, Validators.maxLength(50)]);
+      this.metroIpForm.get('ip_type')?.clearValidators();
+    } else {
+      this.metroIpForm.get('reserve_label')?.clearValidators();
+      this.metroIpForm.get('ip_type')?.setValidators([Validators.required]);
+      if (!this.metroIpForm.get('ip_type')?.value || this.metroIpForm.get('ip_type')?.value === String(METRO_IP_TYPE_BLOCK)) {
+        this.metroIpForm.patchValue({ ip_type: '0' });
+      }
+    }
+    this.metroIpForm.get('reserve_label')?.updateValueAndValidity();
+    this.metroIpForm.get('ip_type')?.updateValueAndValidity();
+    this.calculateMetroIpRange();
+  }
+
   // Metro IP Range Calculation
   calculateMetroIpRange(): void {
     const nasId = this.metroIpForm.get('nas_id')?.value;
     const ipaddress = this.metroIpForm.get('ipaddress')?.value;
     const clientCount = this.metroIpForm.get('client_count')?.value;
     const ipType = this.metroIpForm.get('ip_type')?.value;
+    const addMode = this.metroIpForm.get('add_mode')?.value;
+
+    if (addMode === 'block_reserve' && nasId && ipaddress) {
+      const selectedNas = this.nasDevices.find((nas) => nas.id === parseInt(nasId, 10));
+      if (!selectedNas) {
+        this.metroIpPreview = [];
+        return;
+      }
+      const cidr = String(ipaddress).trim();
+      if (!/^\d{1,3}(?:\.\d{1,3}){3}\/\d{1,2}$/.test(cidr)) {
+        this.metroIpPreview = [];
+        return;
+      }
+      const note = String(this.metroIpForm.get('reserve_label')?.value || '').trim()
+        || this.tr('ip_management.default_reserve_label');
+      this.metroIpPreview = [
+        {
+          nasname: selectedNas.shortname || selectedNas.nasname,
+          ipaddress: cidr,
+          ports: '-',
+          ip_type: METRO_IP_TYPE_BLOCK,
+          user: null,
+          notes: note,
+          is_block: true
+        }
+      ];
+      return;
+    }
 
     if (nasId && ipaddress && ipType) {
       // Find selected NAS device
@@ -664,9 +1542,16 @@ export class IpManagementComponent implements OnInit {
             
             if (completed + errors === ipPoolsToCreate.length) {
               if (errors === 0) {
-                alert(`Successfully created ${completed} IP pools!`);
+                alert(
+                  this.tr('ip_management.alert_ip_pools_created_success', { count: completed })
+                );
               } else {
-                alert(`Created ${completed} IP pools, ${errors} failed.`);
+                alert(
+                  this.tr('ip_management.alert_ip_pools_created_partial', {
+                    completed,
+                    errors
+                  })
+                );
               }
               this.closeIpPoolModal();
               this.loadData(); // Refresh the list
@@ -678,9 +1563,14 @@ export class IpManagementComponent implements OnInit {
             
             if (completed + errors === ipPoolsToCreate.length) {
               if (errors === ipPoolsToCreate.length) {
-                alert('Failed to create IP pools. Please try again.');
+                alert(this.tr('ip_management.alert_ip_pools_create_failed'));
               } else {
-                alert(`Created ${completed} IP pools, ${errors} failed.`);
+                alert(
+                  this.tr('ip_management.alert_ip_pools_created_partial', {
+                    completed,
+                    errors
+                  })
+                );
               }
               this.closeIpPoolModal();
               this.loadData(); // Refresh the list
@@ -693,73 +1583,84 @@ export class IpManagementComponent implements OnInit {
 
   saveMetroIp(): void {
     const formData = this.metroIpForm.value;
-    const ipType = formData.ip_type;
+    const addMode = formData.add_mode;
 
-    // Validate form based on IP type
-    let isValid = formData.nas_id && formData.ipaddress && formData.ip_type;
-
-    if (ipType === '1') {
-      // Shared IP requires client count
-      isValid = isValid && formData.client_count;
-    }
-
-    if (isValid && this.metroIpPreview.length > 0) {
-      // Find selected NAS device
-      const selectedNas = this.nasDevices.find(nas => nas.id === parseInt(formData.nas_id));
+    if (addMode === 'block_reserve') {
+      if (!formData.nas_id || !formData.ipaddress || !formData.reserve_label) {
+        alert(this.tr('ip_management.alert_block_reserve_required'));
+        return;
+      }
+      const selectedNas = this.nasDevices.find((nas) => nas.id === parseInt(formData.nas_id, 10));
       if (!selectedNas) return;
 
       let tenantId = this.selectedTenantId;
-
-      // Super admin can select tenant, regular admin uses their own tenant
       if (this.isSuperAdmin && formData.tenant_id) {
         tenantId = formData.tenant_id;
       }
 
-      console.log('Creating Metro IPs:', this.metroIpPreview);
-
-      // Create Metro IPs one by one
-      let completed = 0;
-      let errors = 0;
-
-      this.metroIpPreview.forEach((metroIP, index) => {
-        const metroIpData = {
-          ...metroIP,
-          tenant_id: tenantId
-        };
-
-        this.ipService.createMetroIP(metroIpData).subscribe({
+      this.ipService
+        .createMetroIP({
+          add_mode: 'block_reserve',
+          nasname: selectedNas.shortname || selectedNas.nasname,
+          ipaddress: String(formData.ipaddress).trim(),
+          notes: String(formData.reserve_label).trim(),
+          tenant_id: tenantId,
+          ip_type: METRO_IP_TYPE_BLOCK
+        })
+        .subscribe({
           next: (response) => {
-            completed++;
-            console.log(`✅ Metro IP ${index + 1}/${this.metroIpPreview.length} created:`, response);
-
-            if (completed + errors === this.metroIpPreview.length) {
-              if (errors === 0) {
-                alert(`Successfully created ${completed} Metro IPs!`);
-              } else {
-                alert(`Created ${completed} Metro IPs, ${errors} failed.`);
-              }
+            if (response.success) {
+              alert(response.message || this.tr('ip_management.alert_block_reserved'));
               this.closeMetroIpModal();
-              this.loadData(); // Refresh the list
+              this.loadData();
             }
           },
           error: (error) => {
-            errors++;
-            console.error(`❌ Metro IP ${index + 1} creation failed:`, error);
-
-            if (completed + errors === this.metroIpPreview.length) {
-              if (errors === this.metroIpPreview.length) {
-                alert('Failed to create Metro IPs. Please try again.');
-              } else {
-                alert(`Created ${completed} Metro IPs, ${errors} failed.`);
-              }
-              this.closeMetroIpModal();
-              this.loadData(); // Refresh the list
-            }
+            alert(error?.error?.message || this.tr('ip_management.alert_block_reserve_failed'));
           }
         });
+      return;
+    }
+
+    const ipType = formData.ip_type;
+    let isValid = formData.nas_id && formData.ipaddress && formData.ip_type;
+    if (ipType === '1') {
+      isValid = isValid && formData.client_count;
+    }
+
+    if (isValid && this.metroIpPreview.length > 0) {
+      const selectedNas = this.nasDevices.find((nas) => nas.id === parseInt(formData.nas_id, 10));
+      if (!selectedNas) return;
+
+      let tenantId = this.selectedTenantId;
+      if (this.isSuperAdmin && formData.tenant_id) {
+        tenantId = formData.tenant_id;
+      }
+
+      const items = this.metroIpPreview.map((metroIP) => ({
+        ...metroIP,
+        tenant_id: tenantId
+      }));
+
+      this.ipService.createMetroIPsBulk(items, tenantId).subscribe({
+        next: (response) => {
+          if (response.success) {
+            alert(
+              response.message ||
+                this.tr('ip_management.alert_metro_ips_created', {
+                  count: response.data?.count || items.length
+                })
+            );
+            this.closeMetroIpModal();
+            this.loadData();
+          }
+        },
+        error: (error) => {
+          alert(error?.error?.message || this.tr('ip_management.alert_metro_ips_create_failed'));
+        }
       });
     } else {
-      alert('Please fill in all required fields.');
+      alert(this.tr('ip_management.alert_fill_required_preview'));
     }
   }
 }

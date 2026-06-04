@@ -195,6 +195,10 @@
                     <option value="in_use">{{ 'ip_management.in_use' | translate }}</option>
                     <option value="static">{{ 'ip_management.static_ip' | translate }}</option>
                     <option value="shared">{{ 'ip_management.shared_ip' | translate }}</option>
+                    <option value="shared_src">{{ 'ip_management.shared_src_ip' | translate }}</option>
+                    <option value="routed">{{ 'ip_management.routed_ip' | translate }}</option>
+                    <option value="nat">{{ 'ip_management.nat_ip' | translate }}</option>
+                    <option value="block">{{ 'ip_management.block_filter' | translate }}</option>
                   </select>
                 </div>
                 <div class="col-md-3">
@@ -205,8 +209,11 @@
                   <input type="text" class="form-control" [placeholder]="'ip_management.nas_name_filter' | translate" 
                          [(ngModel)]="nasNameFilter" (keyup.enter)="onSearch()">
                 </div>
-                <div class="col-md-3">
-                  <button class="btn btn-outline-secondary" (click)="clearMetroIpFilters()">
+                <div class="col-md-3 d-flex">
+                  <button class="btn btn-primary mr-2" type="button" (click)="applyMetroIpFilters()">
+                    <i class="fas fa-filter"></i> {{ 'ip_management.apply_filters' | translate }}
+                  </button>
+                  <button class="btn btn-outline-secondary" type="button" (click)="clearMetroIpFilters()">
                     <i class="fas fa-times"></i> {{ 'ip_management.clear_filters' | translate }}
                   </button>
                 </div>
@@ -276,7 +283,7 @@
                     <td>{{ formatDateTime(pool.expiry_time) }}</td>
                     <td>
                       <span [class]="getStatusBadgeClass(pool)">
-                        {{ getStatusText(pool) }}
+                        {{ getStatusText(pool) | translate }}
                       </span>
                     </td>
                     <td>
@@ -304,10 +311,12 @@
               <th style="width: 150px;">{{ 'ip_management.ip_address' | translate }}</th>
               <th style="width: 120px;">{{ 'ip_management.ports' | translate }}</th>
               <th style="width: 100px;">{{ 'ip_management.ip_type' | translate }}</th>
-              <th style="width: 200px;">{{ 'ip_management.user' | translate }}</th>
+              <th style="width: 140px;">{{ 'ip_management.user' | translate }}</th>
+              <th style="width: 130px;">{{ 'ip_management.lan' | translate }}</th>
+              <th style="width: 180px;">{{ 'ip_management.notes' | translate }}</th>
               <th style="width: 100px;">{{ 'ip_management.status' | translate }}</th>
-              <th style="width: 80px;">{{ 'ip_management.tenant_id' | translate }}</th>
-              <th style="width: 60px;">-</th>
+              <th style="width: 60px;">{{ 'ip_management.tenant_id' | translate }}</th>
+              <th style="width: 120px;">{{ 'ip_management.actions' | translate }}</th>
             </tr>
                 </thead>
                 <tbody>
@@ -317,23 +326,65 @@
                     <td>{{ metroip.ipaddress || '-' }}</td>
                     <td>{{ metroip.ports || '-' }}</td>
                     <td>
-                      <span class="badge" [ngClass]="metroip.ip_type === 0 ? 'badge-info' : 'badge-warning'">
-                        {{ metroip.ip_type === 0 ? ('ip_management.static' | translate) : ('ip_management.shared' | translate) }}
+                      <span class="metro-ip-type-badge" [ngClass]="getMetroIpTypeBadgeClass(metroip)">
+                        {{ getMetroIpTypeLabel(metroip) | translate }}
                       </span>
                     </td>
-                    <td>{{ metroip.user || '-' }}</td>
-                    <td>
+                    <td>{{ (metroip.ip_type === 3 || metroip.is_block) ? '—' : (metroip.user || '-') }}</td>
+                    <td class="lan-cell" [title]="metroip.lan_ip || ''">{{ metroip.lan_ip || '-' }}</td>
+                    <td class="notes-cell">
+                      <span
+                        class="notes-text"
+                        [title]="metroip.notes || ''"
+                        (click)="editMetroIpNotes(metroip)">
+                        {{ metroip.notes || '-' }}
+                      </span>
+                    </td>
+                    <td class="metro-status-cell">
                       <span class="badge" [ngClass]="getMetroIpStatusBadgeClass(metroip)">
-                        {{ getMetroIpStatusText(metroip) }}
+                        {{ getMetroIpStatusText(metroip) | translate }}
                       </span>
                     </td>
                     <td>{{ metroip.tenant_id || '-' }}</td>
                     <td>
-                      <span class="text-muted">-</span>
+                      <div class="binding-cell">
+                        <span *ngIf="shouldShowBindingBadge(metroip)" class="badge badge-info mb-1">
+                          {{ getMetroIpBindingLabel(metroip) | translate }}
+                        </span>
+                        <div class="action-cluster">
+                          <button
+                            *ngIf="canRouteMetroIp(metroip)"
+                            type="button"
+                            class="btn btn-sm btn-primary route-cta-btn action-icon-btn"
+                            [title]="'ip_management.route_ip' | translate"
+                            [attr.aria-label]="'ip_management.route_ip' | translate"
+                            (click)="openRouteModal(metroip)">
+                            <i class="fas fa-route" aria-hidden="true"></i>
+                          </button>
+                          <button
+                            *ngIf="canManageNat(metroip)"
+                            type="button"
+                            class="btn btn-sm btn-warning nat-cta-btn action-icon-btn"
+                            [title]="'ip_management.apply_nat' | translate"
+                            [attr.aria-label]="'ip_management.apply_nat' | translate"
+                            (click)="openNatModal(metroip)">
+                            <i class="fas fa-exchange-alt" aria-hidden="true"></i>
+                          </button>
+                          <button
+                            *ngIf="canClearRoute(metroip)"
+                            type="button"
+                            class="btn btn-sm btn-outline-danger action-icon-btn"
+                            [title]="'ip_management.clear_route' | translate"
+                            [attr.aria-label]="'ip_management.clear_route' | translate"
+                            (click)="openRouteModal(metroip)">
+                            <i class="fas fa-trash-alt" aria-hidden="true"></i>
+                          </button>
+                        </div>
+                      </div>
                     </td>
                   </tr>
                   <tr *ngIf="metroIPs.length === 0">
-                    <td colspan="9" class="text-center text-muted py-4">
+                    <td colspan="11" class="text-center text-muted py-4">
                       {{ 'ip_management.no_metro_ips_found' | translate }}
                     </td>
                   </tr>
@@ -343,11 +394,16 @@
           </div>
 
           <!-- Pagination -->
-          <div *ngIf="!loading && totalPages > 1" class="row mt-3">
+          <div *ngIf="showPagination()" class="row mt-3">
             <div class="col-md-6">
               <p class="text-muted">
-                Showing {{ ((currentPage - 1) * pageSize) + 1 }} to 
-                {{ getMin(currentPage * pageSize, totalPools) }} of {{ totalPools }} entries
+                {{
+                  'ip_management.pagination_showing' | translate: {
+                    from: getPaginationFrom(),
+                    to: getPaginationTo(),
+                    total: getPaginationTotal()
+                  }
+                }}
               </p>
             </div>
             <div class="col-md-6">
@@ -487,6 +543,19 @@
       </div>
       <div class="modal-body">
         <form [formGroup]="metroIpForm">
+          <div class="row mb-3">
+            <div class="col-md-12">
+              <label class="d-block font-weight-bold">{{ 'ip_management.add_mode' | translate }} *</label>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="metroAddExpand" class="custom-control-input" formControlName="add_mode" value="expand" (change)="onMetroAddModeChange()">
+                <label class="custom-control-label" for="metroAddExpand">{{ 'ip_management.add_mode_expand' | translate }}</label>
+              </div>
+              <div class="custom-control custom-radio custom-control-inline">
+                <input type="radio" id="metroAddBlock" class="custom-control-input" formControlName="add_mode" value="block_reserve" (change)="onMetroAddModeChange()">
+                <label class="custom-control-label" for="metroAddBlock">{{ 'ip_management.add_mode_block_reserve' | translate }}</label>
+              </div>
+            </div>
+          </div>
           <div class="row">
             <div class="col-md-6">
               <div class="form-group">
@@ -509,7 +578,17 @@
             </div>
           </div>
           
-          <div class="row">
+          <div class="row" *ngIf="isBlockReserveMode()">
+            <div class="col-md-6">
+              <div class="form-group">
+                <label>{{ 'ip_management.reserve_label' | translate }} *</label>
+                <input type="text" class="form-control" formControlName="reserve_label" [placeholder]="'ip_management.reserve_label_placeholder' | translate" (input)="calculateMetroIpRange()">
+                <small class="form-text text-muted">{{ 'ip_management.reserve_label_hint' | translate }}</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="row" *ngIf="!isBlockReserveMode()">
             <div class="col-md-6">
               <div class="form-group">
                 <label>{{ 'ip_management.ip_type' | translate }} *</label>
@@ -549,10 +628,23 @@
           <div class="row" *ngIf="metroIpPreview.length > 0">
             <div class="col-md-12">
               <div class="form-group">
-                <label>{{ 'ip_management.metro_ip_preview' | translate }} ({{ metroIpPreview.length }} {{ 'ip_management.clients_will_be_created' | translate }}):</label>
+                <label>{{ 'ip_management.metro_ip_preview' | translate }} ({{ metroIpPreview.length }} {{ isBlockReserveMode() ? ('ip_management.preview_block_unit' | translate) : ('ip_management.clients_will_be_created' | translate) }}):</label>
                 <div class="preview-box">
                   <div class="preview-item" *ngFor="let metro of metroIpPreview.slice(0, 10)">
-                    <strong>{{ metro.nasname }}</strong> - {{ metro.ipaddress }} - {{ 'ip_management.ports' | translate }}: {{ metro.ports }} - {{ 'ip_management.type' | translate }}: {{ metro.ip_type === 0 ? ('ip_management.static' | translate) : ('ip_management.shared' | translate) }}
+                    <strong>{{ metro.nasname }}</strong> - {{ metro.ipaddress }}
+                    <span *ngIf="metro.is_block">
+                      —
+                      <span class="metro-ip-type-badge ml-1" [ngClass]="getMetroIpTypeBadgeClass(metro)">
+                        {{ getMetroIpTypeLabel(metro) | translate }}
+                      </span>
+                      <span *ngIf="metro.notes"> — {{ metro.notes }}</span>
+                    </span>
+                    <span *ngIf="!metro.is_block">
+                      - {{ 'ip_management.ports' | translate }}: {{ metro.ports }} -
+                      <span class="metro-ip-type-badge ml-1" [ngClass]="getMetroIpTypeBadgeClass(metro)">
+                        {{ getMetroIpTypeLabel(metro) | translate }}
+                      </span>
+                    </span>
                   </div>
                   <div *ngIf="metroIpPreview.length > 10" class="text-muted">
                     ... {{ 'ip_management.and' | translate }} {{ metroIpPreview.length - 10 }} {{ 'ip_management.more_clients' | translate }}
@@ -566,10 +658,219 @@
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" (click)="closeMetroIpModal()">{{ 'common.cancel' | translate }}</button>
         <button type="button" class="btn btn-primary" (click)="saveMetroIp()" 
-                [disabled]="!metroIpForm.valid || metroIpPreview.length === 0">
-          {{ 'common.create' | translate }} {{ metroIpPreview.length }} {{ 'ip_management.metro_ip' | translate }}{{ metroIpPreview.length !== 1 ? 's' : '' }}
+                [disabled]="metroIpPreview.length === 0 || (!isBlockReserveMode() && !metroIpForm.valid) || (isBlockReserveMode() && (!metroIpForm.get('nas_id')?.value || !metroIpForm.get('ipaddress')?.value || !metroIpForm.get('reserve_label')?.value))">
+          <ng-container *ngIf="isBlockReserveMode(); else expandCreateLabel">
+            {{ 'ip_management.reserve_submit' | translate }}
+          </ng-container>
+          <ng-template #expandCreateLabel>
+            {{ 'common.create' | translate }} {{ metroIpPreview.length }} {{ 'ip_management.metro_ip' | translate }}{{ metroIpPreview.length !== 1 ? 's' : '' }}
+          </ng-template>
         </button>
       </div>
     </div>
   </div>
 </div>
+
+<!-- Route Metro IP Modal -->
+<div class="modal fade" [class.show]="showRouteModal" [style.display]="showRouteModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ 'ip_management.route_ip_title' | translate }}</h5>
+        <button type="button" class="close" (click)="closeRouteModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          <strong>{{ 'ip_management.ip_address' | translate }}:</strong> {{ routeTargetMetroIp?.ipaddress }}<br>
+          <strong>{{ 'ip_management.ports' | translate }}:</strong> {{ routeTargetMetroIp?.ports || '-' }}
+        </p>
+        <form [formGroup]="routeForm">
+          <div class="form-group mb-3">
+            <label>{{ 'ip_management.router' | translate }}</label>
+            <select class="form-control" formControlName="routerId">
+              <option value="">{{ 'ip_management.select_router' | translate }}</option>
+              <option *ngFor="let nas of nasDevices" [value]="nas.id">
+                {{ nas.shortname }} ({{ nas.nasname }})
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>{{ 'ip_management.user_label' | translate }}</label>
+            <select class="form-control" formControlName="username">
+              <option value="">{{ 'ip_management.select_user' | translate }}</option>
+              <option *ngFor="let user of userOptions" [value]="user.username">
+                {{ user.username }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>{{ 'ip_management.route_notes_label' | translate }}</label>
+            <input
+              type="text"
+              class="form-control"
+              formControlName="notes"
+              [placeholder]="'ip_management.route_notes_placeholder' | translate">
+            <small class="form-text text-muted">{{ 'ip_management.route_notes_hint' | translate }}</small>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeRouteModal()">{{ 'common.cancel' | translate }}</button>
+        <button
+          type="button"
+          class="btn btn-outline-danger action-icon-btn action-icon-btn--modal"
+          [title]="'ip_management.clear_route' | translate"
+          [attr.aria-label]="'ip_management.clear_route' | translate"
+          [disabled]="routingInProgress || !routeTargetMetroIp || !canClearRoute(routeTargetMetroIp)"
+          (click)="clearRouteFromMetroIp()">
+          <i *ngIf="routingInProgress" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+          <i *ngIf="!routingInProgress" class="fas fa-trash-alt" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary action-icon-btn action-icon-btn--modal"
+          [title]="'ip_management.apply_route' | translate"
+          [attr.aria-label]="'ip_management.apply_route' | translate"
+          [disabled]="!canSubmitRouteForm() || routingInProgress"
+          (click)="routeSelectedMetroIp()">
+          <i *ngIf="routingInProgress" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+          <i *ngIf="!routingInProgress" class="fas fa-route" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- NAT Metro IP Modal -->
+<div class="modal fade" [class.show]="showNatModal" [style.display]="showNatModal ? 'block' : 'none'" tabindex="-1" role="dialog">
+  <div class="modal-dialog modal-lg" role="document">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">{{ 'ip_management.apply_nat_title' | translate }}</h5>
+        <button type="button" class="close" (click)="closeNatModal()">
+          <span>&times;</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="mb-3">
+          <strong>{{ 'ip_management.public_ip' | translate }}:</strong> {{ natTargetMetroIp?.ipaddress }}<br>
+          <small class="text-muted">{{ 'ip_management.nat_setup_hint' | translate }}</small>
+        </p>
+        <div *ngIf="natLoadingExisting" class="alert alert-light py-2 mb-3">
+          <i class="fas fa-spinner fa-spin me-1"></i> {{ 'ip_management.loading_nat_rules' | translate }}
+        </div>
+        <div *ngIf="!natLoadingExisting && existingNatSummary" class="alert alert-info py-2 mb-3">
+          {{ existingNatSummary }}
+        </div>
+        <form [formGroup]="natForm">
+          <div class="form-group mb-3">
+            <label>{{ 'ip_management.router' | translate }}</label>
+            <select class="form-control" formControlName="routerId" (change)="onNatRouterChange()">
+              <option value="">{{ 'ip_management.select_router' | translate }}</option>
+              <option *ngFor="let nas of nasDevices" [value]="nas.id">
+                {{ nas.shortname }} ({{ nas.nasname }})
+              </option>
+            </select>
+          </div>
+          <div class="form-group mb-3">
+            <label>{{ 'ip_management.user_optional_comment' | translate }}</label>
+            <select class="form-control" formControlName="username">
+              <option value="">{{ 'ip_management.select_user' | translate }}</option>
+              <option *ngFor="let user of userOptions" [value]="user.username">
+                {{ user.username }}
+              </option>
+            </select>
+          </div>
+          <div class="form-group mb-3">
+            <label>{{ 'ip_management.nat_local_ip' | translate }}</label>
+            <input type="text" class="form-control" formControlName="natLocalIp" placeholder="e.g. 192.168.200.245">
+          </div>
+          <div class="form-group mb-3">
+            <label>{{ 'ip_management.nat_type' | translate }}</label>
+            <select class="form-control" formControlName="natType" (change)="onNatTypeChange()">
+              <option value="both">{{ 'ip_management.nat_type_both' | translate }}</option>
+              <option value="src">{{ 'ip_management.nat_type_src' | translate }}</option>
+              <option value="dst">{{ 'ip_management.nat_type_dst' | translate }}</option>
+            </select>
+          </div>
+          <div *ngIf="natForm.get('natType')?.value === 'dst' || natForm.get('natType')?.value === 'both'">
+            <div class="form-group mb-3">
+              <label>{{ 'ip_management.dst_nat_services' | translate }}</label>
+              <select class="form-control" formControlName="dstNatServiceMode" (change)="onDstNatServiceModeChange()">
+                <option value="none">{{ 'ip_management.dst_nat_none' | translate }}</option>
+                <option value="all">{{ 'ip_management.dst_nat_all' | translate }}</option>
+                <option value="selected">{{ 'ip_management.dst_nat_selected' | translate }}</option>
+                <option value="custom">{{ 'ip_management.dst_nat_custom' | translate }}</option>
+              </select>
+            </div>
+            <div class="form-group mb-3" *ngIf="natForm.get('dstNatServiceMode')?.value !== 'none' && natForm.get('dstNatServiceMode')?.value === 'selected'">
+              <label>{{ 'ip_management.common_services' | translate }}</label>
+              <div class="service-checklist">
+                <label class="service-item" *ngFor="let service of natServiceOptions" [class.service-item-active]="selectedNatServices.includes(service.key)">
+                  <input
+                    type="checkbox"
+                    [checked]="selectedNatServices.includes(service.key)"
+                    (change)="toggleNatService(service.key)">
+                  <span>{{ service.label }}</span>
+                </label>
+              </div>
+            </div>
+            <div class="form-group mb-3" *ngIf="natForm.get('dstNatServiceMode')?.value !== 'none' && natForm.get('dstNatServiceMode')?.value === 'custom'">
+              <div class="d-flex justify-content-between align-items-center mb-2">
+                <label class="mb-0">{{ 'ip_management.custom_nat_rules' | translate }}</label>
+                <button type="button" class="btn btn-sm btn-outline-primary" (click)="addCustomNatRule()">
+                  <i class="fas fa-plus"></i> {{ 'ip_management.add_rule' | translate }}
+                </button>
+              </div>
+              <div *ngFor="let rule of customNatRules; let i = index" class="custom-rule-row">
+                <select
+                  class="form-control form-control-sm"
+                  [value]="rule.protocol"
+                  (change)="updateCustomNatRuleProtocol(i, $any($event.target).value)">
+                  <option value="tcp">TCP</option>
+                  <option value="udp">UDP</option>
+                </select>
+                <input
+                  type="text"
+                  class="form-control form-control-sm"
+                  [value]="rule.port"
+                  [placeholder]="'ip_management.port_or_range_placeholder' | translate"
+                  (input)="updateCustomNatRulePort(i, $any($event.target).value)">
+                <button type="button" class="btn btn-sm btn-outline-danger" (click)="removeCustomNatRule(i)">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </div>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" (click)="closeNatModal()">{{ 'common.cancel' | translate }}</button>
+        <button
+          type="button"
+          class="btn btn-outline-danger action-icon-btn action-icon-btn--modal"
+          [title]="'ip_management.clear_nat' | translate"
+          [attr.aria-label]="'ip_management.clear_nat' | translate"
+          [disabled]="natInProgress || natLoadingExisting || !existingNatHasRules"
+          (click)="clearNatFromMetroIp()">
+          <i *ngIf="natInProgress" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+          <i *ngIf="!natInProgress" class="fas fa-trash-alt" aria-hidden="true"></i>
+        </button>
+        <button
+          type="button"
+          class="btn btn-warning action-icon-btn action-icon-btn--modal"
+          [title]="'ip_management.apply_nat' | translate"
+          [attr.aria-label]="'ip_management.apply_nat' | translate"
+          [disabled]="!canSubmitNatForm() || natInProgress"
+          (click)="applyNatToMetroIp()">
+          <i *ngIf="natInProgress" class="fas fa-spinner fa-spin" aria-hidden="true"></i>
+          <i *ngIf="!natInProgress" class="fas fa-check" aria-hidden="true"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div *ngIf="showIpPoolModal || showMetroIpModal || showRouteModal || showNatModal" class="modal-backdrop fade show"></div>

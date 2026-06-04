@@ -1,23 +1,43 @@
 version: '3.8'
 
 services:
+  # Opens host UDP 1812/1813 in firewalld on every `docker compose up` (set RADIUS_SKIP_FIREWALL=1 to disable)
+  radius-firewall-init:
+    build:
+      context: ./scripts
+      dockerfile: Dockerfile.firewall-init
+    image: iss-radius-firewall-init
+    container_name: radius_firewall_init
+    network_mode: host
+    environment:
+      RADIUS_SKIP_FIREWALL: ${RADIUS_SKIP_FIREWALL:-0}
+    volumes:
+      - /run/dbus:/run/dbus:ro
+    restart: "no"
+
   # MySQL Database
   mysql:
     image: mysql:8.0
     container_name: radius_mysql
     restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-321321}
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-${DB_PASSWORD:-your_secure_password_here}}
       MYSQL_DATABASE: ${MYSQL_DATABASE:-radius}
       MYSQL_ROOT_HOST: ${MYSQL_ROOT_HOST:-%}
     ports:
       - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
+      - ./data/mysql:/var/lib/mysql
       - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - radius_network
-    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+    command: --default-authentication-plugin=mysql_native_password --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --default-time-zone=+03:00
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h 127.0.0.1 -uroot -p\"$$MYSQL_ROOT_PASSWORD\" || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 40s
 
   # Redis for sessions
   redis:
@@ -27,7 +47,31 @@ services:
     ports:
       - "6379:6379"
     volumes:
-      - redis_data:/data
+      - ./data/redis:/data
+    networks:
+      - radius_network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 8
+      start_period: 10s
+
+  # FreeRADIUS — host LAN IP (e.g. 192.168.9.7); NAS `server` = MikroTik source IP
+  freeradius:
+    build:
+      context: ./freeradius
+      dockerfile: Dockerfile
+    container_name: radius_freeradius
+    restart: unless-stopped
+    environment:
+      RADIUS_DB_PASSWORD: ${DB_PASSWORD:-${MYSQL_ROOT_PASSWORD:-your_secure_password_here}}
+    ports:
+      - "0.0.0.0:1812:1812/udp"
+      - "0.0.0.0:1813:1813/udp"
+    depends_on:
+      radius-firewall-init:
+        condition: service_completed_successfully
     networks:
       - radius_network
 
@@ -45,21 +89,66 @@ services:
       DB_PORT: ${DB_PORT:-3306}
       DB_NAME: ${DB_NAME:-radius}
       DB_USER: ${DB_USER:-root}
-      DB_PASSWORD: ${DB_PASSWORD:-321321}
+      DB_PASSWORD: ${DB_PASSWORD:-${MYSQL_ROOT_PASSWORD:-your_secure_password_here}}
       REDIS_HOST: ${REDIS_HOST:-redis}
       REDIS_PORT: ${REDIS_PORT:-6379}
       JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-here}
       CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:4200}
+      RADIUS_CONTAINER_NAME: radius_freeradius
+      RADIUS_RELOAD_ENABLED: ${RADIUS_RELOAD_ENABLED:-true}
+      BTK_LOG_ROOT: /data/btk-logs
+      LOG_SIGNING_SECRET: ${LOG_SIGNING_SECRET:-your-super-secret-jwt-key-here}
+      BTK_TIMEZONE_OFFSET: ${BTK_TIMEZONE_OFFSET:-+03:00}
+      BTK_MAX_CLOCK_DRIFT_SEC: ${BTK_MAX_CLOCK_DRIFT_SEC:-5}
     ports:
       - "3000:3000"
-    depends_on:
-      - mysql
-      - redis
     volumes:
       - ./backend:/app
       - /app/node_modules
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data/btk-logs:/data/btk-logs
     networks:
       - radius_network
+    healthcheck:
+      test: ["CMD", "node", "healthcheck.js"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 60s
+
+  # BTK hourly log export (cron inside Docker — starts with compose up)
+  btk-cron:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.btk-cron
+    image: iss-btk-cron
+    container_name: radius_btk_cron
+    restart: unless-stopped
+    environment:
+      NODE_ENV: ${NODE_ENV:-production}
+      DB_HOST: ${DB_HOST:-mysql}
+      DB_PORT: ${DB_PORT:-3306}
+      DB_NAME: ${DB_NAME:-radius}
+      DB_USER: ${DB_USER:-root}
+      DB_PASSWORD: ${DB_PASSWORD:-${MYSQL_ROOT_PASSWORD:-your_secure_password_here}}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      BTK_LOG_ROOT: /data/btk-logs
+      LOG_SIGNING_SECRET: ${LOG_SIGNING_SECRET:-your-super-secret-jwt-key-here}
+      BTK_TIMEZONE_OFFSET: ${BTK_TIMEZONE_OFFSET:-+03:00}
+      BTK_MAX_CLOCK_DRIFT_SEC: ${BTK_MAX_CLOCK_DRIFT_SEC:-5}
+    volumes:
+      - ./data/btk-logs:/data/btk-logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    networks:
+      - radius_network
+    init: true
 
   # Angular Frontend
   frontend:
@@ -70,8 +159,6 @@ services:
     restart: unless-stopped
     ports:
       - "4200:80"
-    depends_on:
-      - backend
     networks:
       - radius_network
 
@@ -85,15 +172,8 @@ services:
       - "443:443"
     volumes:
       - ./nginx.conf:/etc/nginx/nginx.conf
-    depends_on:
-      - frontend
-      - backend
     networks:
       - radius_network
-
-volumes:
-  mysql_data:
-  redis_data:
 
 networks:
   radius_network:

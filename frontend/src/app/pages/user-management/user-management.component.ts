@@ -41,6 +41,7 @@ export class UserManagementComponent implements OnInit {
   // Modal states
   showUserModal = false;
   isEditing = false;
+  showPassword = false;
   
   // Forms
   userForm: FormGroup;
@@ -360,9 +361,12 @@ export class UserManagementComponent implements OnInit {
     // Recreate form to ensure proper validation
     this.userForm = this.createUserForm();
     
+    this.showPassword = false;
+
     this.userForm.patchValue({
       // Temel bilgiler
       username: user.username,
+      password: user.password || '',
       first_name: user.first_name,
       last_name: user.last_name,
       email: user.email,
@@ -621,9 +625,14 @@ export class UserManagementComponent implements OnInit {
     this.currentUser = null;
     this.availableIps = [];
     this.selectedIpInfo = null;
+    this.showPassword = false;
     
     // Recreate form to reset validators
     this.userForm = this.createUserForm();
+  }
+
+  togglePasswordVisibility(): void {
+    this.showPassword = !this.showPassword;
   }
 
   async saveUser(): Promise<void> {
@@ -645,7 +654,11 @@ export class UserManagementComponent implements OnInit {
       }
       
       if (this.isEditing && this.currentUser) {
-        this.userService.updateUser(this.currentUser.id, formData).subscribe({
+        const updatePayload = { ...formData };
+        if (!updatePayload.password || String(updatePayload.password).trim() === '') {
+          delete updatePayload.password;
+        }
+        this.userService.updateUser(this.currentUser.id, updatePayload).subscribe({
           next: (response) => {
             if (response.success) {
               // If dynamic IP mode, assign the selected IPs
@@ -1104,33 +1117,28 @@ export class UserManagementComponent implements OnInit {
     }
     
     this.loadingAvailableExtraIps = true;
-    this.ipService.getMetroIPs({
-      page: 1,
-      limit: 1000,
-      tenantId: this.selectedTenantId,
-      metroIpFilter: 'static'
-    }).subscribe({
-      next: (resp) => {
-        this.loadingAvailableExtraIps = false;
-        if (resp?.success) {
-          const list = resp.data?.metroips || [];
-          // Get all primary IPs to exclude
-          const currentUserIp = this.currentUser?.ip_address || '';
-          const allPrimaryIps = [this.primaryIp, currentUserIp].filter(ip => ip);
-          
-          // Filter out IPs with port ranges (only allow single IPs without ports)
-          // Also exclude all primary IPs
-          this.availableExtraIps = list
-            .filter((m: any) => !m.ports || m.ports === '' || m.ports === null)
-            .filter((m: any) => !m.user || m.user === '') // Only available IPs
-            .filter((m: any) => !allPrimaryIps.includes(m.ipaddress)) // Exclude all primary IPs
-            .map((m: any) => ({ ip: m.ipaddress }));
+    const username = this.currentUser?.username || '';
+    const currentUserIp = this.currentUser?.ip_address || '';
+    this.ipService
+      .getAssignableStaticMetroIPs({
+        tenantId: this.selectedTenantId,
+        username,
+        pickerMode: 'extra'
+      })
+      .subscribe({
+        next: (resp) => {
+          this.loadingAvailableExtraIps = false;
+          if (resp?.success) {
+            const allPrimaryIps = [this.primaryIp, currentUserIp].filter((ip) => ip);
+            this.availableExtraIps = (resp.data?.metroips || [])
+              .filter((m: any) => !allPrimaryIps.includes(m.value || m.ip))
+              .map((m: any) => ({ ip: m.value || m.ip }));
+          }
+        },
+        error: () => {
+          this.loadingAvailableExtraIps = false;
         }
-      },
-      error: () => {
-        this.loadingAvailableExtraIps = false;
-      }
-    });
+      });
   }
 
   loadExtraIps(username: string): void {
@@ -1221,51 +1229,63 @@ export class UserManagementComponent implements OnInit {
     return this.loadMetroIPsAsync('');
   }
 
+  /** Host IP inside reserved Metro CIDR block? */
+  private isIpInsideReservedBlock(hostIp: string, blockCidr: string): boolean {
+    const host = String(hostIp || '').split('/')[0].trim();
+    const cidr = String(blockCidr || '').trim();
+    const m = cidr.match(/^(\d{1,3}(?:\.\d{1,3}){3})\/(\d{1,2})$/);
+    if (!m) return false;
+    const prefix = parseInt(m[2], 10);
+    const parts = host.split('.').map((p) => parseInt(p, 10));
+    if (parts.length !== 4 || parts.some((n) => Number.isNaN(n))) return false;
+    const ipNum =
+      ((parts[0] << 24) >>> 0) +
+      ((parts[1] << 16) >>> 0) +
+      ((parts[2] << 8) >>> 0) +
+      (parts[3] >>> 0);
+    const base = m[1].split('.').map((p) => parseInt(p, 10));
+    const baseNum =
+      ((base[0] << 24) >>> 0) +
+      ((base[1] << 16) >>> 0) +
+      ((base[2] << 8) >>> 0) +
+      (base[3] >>> 0);
+    const mask = prefix === 0 ? 0 : (~((1 << (32 - prefix)) - 1) >>> 0);
+    const network = (baseNum & mask) >>> 0;
+    const broadcast = (network | (~mask >>> 0)) >>> 0;
+    return ipNum >= network && ipNum <= broadcast;
+  }
+
   loadMetroIPsAsync(currentIp: string): Promise<void> {
     return new Promise((resolve, reject) => {
-      this.ipService.getMetroIPs({
-        page: 1,
-        limit: 1000,
-        search: '',
-        tenantId: this.selectedTenantId,
-        metroIpFilter: 'static' // Only static IPs
-      }).subscribe({
-        next: (response) => {
-          if (response.success) {
-            const metroIPs = response.data.metroips || [];
-            this.availableIps = metroIPs
-              .filter((metro: any) => !metro.user || metro.user === '') // Only available IPs
-              .map((metro: any) => ({
-                value: metro.ipaddress,
-                display: `${metro.ipaddress} - ${metro.ports}`,
-                type: 'Static',
-                ip: metro.ipaddress,
-                ports: metro.ports,
-                nas: metro.nasname
-              }));
-            
-            // Add current IP if provided and not in list
-            if (currentIp && !this.availableIps.find(ip => ip.value === currentIp)) {
-              this.availableIps.unshift({
-                value: currentIp,
-                display: `${currentIp} (Current)`,
-                type: 'Static',
-                ip: currentIp,
-                ports: '',
-                nas: ''
-              });
+      const username = this.currentUser?.username || '';
+      this.ipService
+        .getAssignableStaticMetroIPs({
+          tenantId: this.selectedTenantId,
+          username,
+          currentIp: currentIp || '',
+          pickerMode: 'primary'
+        })
+        .subscribe({
+          next: (response) => {
+            if (!response.success) {
+              reject(new Error('Failed to load assignable static Metro IPs'));
+              return;
             }
-            
+            this.availableIps = (response.data?.metroips || []).map((metro: any) => ({
+              value: metro.value || metro.ip,
+              display: metro.display || metro.value,
+              type: metro.type || 'Static',
+              ip: metro.ip || metro.value,
+              ports: metro.ports || '',
+              nas: metro.nas || ''
+            }));
             resolve();
-          } else {
-            reject(new Error('Failed to load Metro IPs'));
+          },
+          error: (error) => {
+            console.error('Error loading assignable static Metro IPs:', error);
+            reject(error);
           }
-        },
-        error: (error) => {
-          console.error('Error loading Metro IPs:', error);
-          reject(error);
-        }
-      });
+        });
     });
   }
 

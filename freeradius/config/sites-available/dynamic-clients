@@ -1,0 +1,22 @@
+# Dynamic NAS clients from MySQL `nas` table (no full radius restart on NAS CRUD)
+client dynamic {
+	ipaddr = 0.0.0.0/0
+	netmask = 0
+	dynamic_clients = dynamic_clients
+	lifetime = 120
+}
+
+server dynamic_clients {
+	authorize {
+		if ("%{sql: SELECT id FROM nas WHERE (nasname = '%{Packet-Src-IP-Address}' OR server = '%{Packet-Src-IP-Address}') AND (status IS NULL OR status = 'active') LIMIT 1}") {
+			update control {
+				&FreeRADIUS-Client-IP-Address = "%{Packet-Src-IP-Address}"
+				&FreeRADIUS-Client-Require-MA = no
+				&FreeRADIUS-Client-Shortname = "%{sql: SELECT shortname FROM nas WHERE (nasname = '%{Packet-Src-IP-Address}' OR server = '%{Packet-Src-IP-Address}') AND (status IS NULL OR status = 'active') LIMIT 1}"
+				&FreeRADIUS-Client-Secret = "%{sql: SELECT secret FROM nas WHERE (nasname = '%{Packet-Src-IP-Address}' OR server = '%{Packet-Src-IP-Address}') AND (status IS NULL OR status = 'active') LIMIT 1}"
+				&FreeRADIUS-Client-NAS-Type = "%{sql: SELECT COALESCE(NULLIF(type,''), 'other') FROM nas WHERE (nasname = '%{Packet-Src-IP-Address}' OR server = '%{Packet-Src-IP-Address}') AND (status IS NULL OR status = 'active') LIMIT 1}"
+			}
+			ok
+		}
+	}
+}

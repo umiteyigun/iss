@@ -1,0 +1,2 @@
+# BTK NAT IPDR — previous hour export, run at minute 5 each hour (TR +03 via MySQL session)
+5 * * * * cd /app && node scripts/wait-for-deps.js && node src/scripts/btk-hourly-export.js >> /var/log/btk-cron/hourly.log 2>&1

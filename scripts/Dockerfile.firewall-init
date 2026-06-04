@@ -1,0 +1,6 @@
+# One-shot: open host firewalld ports via D-Bus (requires /run/dbus mount + network_mode: host)
+FROM rockylinux:9-minimal
+RUN microdnf install -y firewalld && microdnf clean all
+COPY open-radius-firewall.sh /usr/local/bin/open-radius-firewall.sh
+RUN chmod +x /usr/local/bin/open-radius-firewall.sh
+ENTRYPOINT ["/usr/local/bin/open-radius-firewall.sh"]

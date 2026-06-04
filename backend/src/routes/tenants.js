@@ -1,12 +1,14 @@
 const express = require('express');
 const { Tenant } = require('../models');
-const { authenticateToken } = require('../middleware/auth');
+const { authenticateToken, requireSuperAdmin } = require('../middleware/auth');
 const { Op } = require('sequelize');
 
 const router = express.Router();
 
+router.use(authenticateToken, requireSuperAdmin);
+
 // Get all tenants with pagination and search
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
     const { 
       page = 1, 
@@ -85,7 +87,7 @@ router.get('/', authenticateToken, async (req, res) => {
 });
 
 // Get single tenant by ID
-router.get('/:id', authenticateToken, async (req, res) => {
+router.get('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -129,7 +131,7 @@ router.get('/:id', authenticateToken, async (req, res) => {
 });
 
 // Create new tenant
-router.post('/', authenticateToken, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const {
       name,
@@ -191,7 +193,7 @@ router.post('/', authenticateToken, async (req, res) => {
 });
 
 // Update tenant
-router.put('/:id', authenticateToken, async (req, res) => {
+router.put('/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const updateData = req.body;
@@ -239,7 +241,7 @@ router.put('/:id', authenticateToken, async (req, res) => {
 });
 
 // Delete tenant
-router.delete('/:id', authenticateToken, async (req, res) => {
+router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
@@ -269,7 +271,7 @@ router.delete('/:id', authenticateToken, async (req, res) => {
 });
 
 // Get tenant statistics
-router.get('/:id/stats', authenticateToken, async (req, res) => {
+router.get('/:id/stats', async (req, res) => {
   try {
     const { id } = req.params;
 

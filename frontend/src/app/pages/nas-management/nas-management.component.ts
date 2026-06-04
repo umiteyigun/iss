@@ -63,7 +63,7 @@ export class NasManagementComponent implements OnInit, OnDestroy {
   constructor(
     private nasService: NasService,
     private tenantService: TenantService,
-    private authService: AuthService,
+    public authService: AuthService,
     private router: Router
   ) {
     // Setup search debounce
@@ -87,7 +87,9 @@ export class NasManagementComponent implements OnInit, OnDestroy {
       return;
     }
     
-    this.loadTenants();
+    if (this.authService.isSuperAdmin()) {
+      this.loadTenants();
+    }
     this.loadNasDevices();
   }
 

@@ -3,8 +3,42 @@ const { NasDevice, Tenant } = require('../models');
 const { authenticateToken } = require('../middleware/auth');
 const { Op } = require('sequelize');
 const MikrotikService = require('../services/MikrotikService');
+const RadiusService = require('../services/RadiusService');
 
 const router = express.Router();
+
+async function notifyRadiusNasChange(action, nasDevice) {
+  try {
+    const reloadResult = await RadiusService.reloadNasClients(`${action}:${nasDevice?.id || 'unknown'}`);
+    return reloadResult;
+  } catch (error) {
+    console.warn(`RADIUS reload after NAS ${action} failed:`, error.message);
+    return { success: false, message: error.message };
+  }
+}
+
+const resolveMikrotikHost = (nasDevice) => {
+  // Prefer explicit management IP/hostname; fall back to nasname for older data.
+  return nasDevice?.server || nasDevice?.nasname;
+};
+
+const MIKROTIK_REQUEST_TIMEOUT_MS = 12000;
+
+const withMikrotikTimeout = async (promise, action) => {
+  let timeoutId;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timeoutId = setTimeout(() => {
+          reject(new Error(`Mikrotik ${action} request timed out after ${MIKROTIK_REQUEST_TIMEOUT_MS}ms`));
+        }, MIKROTIK_REQUEST_TIMEOUT_MS);
+      })
+    ]);
+  } finally {
+    if (timeoutId) clearTimeout(timeoutId);
+  }
+};
 
 // Get all NAS devices with pagination and search
 router.get('/', authenticateToken, async (req, res) => {
@@ -224,10 +258,12 @@ router.post('/', authenticateToken, async (req, res) => {
       ]
     });
 
+    const radiusReload = await notifyRadiusNasChange('create', nasDevice);
+
     res.status(201).json({
       success: true,
       message: 'NAS device created successfully',
-      data: { nasDevice: nasWithTenant }
+      data: { nasDevice: nasWithTenant, radiusReload }
     });
 
   } catch (error) {
@@ -296,10 +332,12 @@ router.put('/:id', authenticateToken, async (req, res) => {
       ]
     });
 
+    const radiusReload = await notifyRadiusNasChange('update', updatedNas);
+
     res.json({
       success: true,
       message: 'NAS device updated successfully',
-      data: { nasDevice: updatedNas }
+      data: { nasDevice: updatedNas, radiusReload }
     });
 
   } catch (error) {
@@ -326,10 +364,12 @@ router.delete('/:id', authenticateToken, async (req, res) => {
     }
 
     await nasDevice.destroy();
+    const radiusReload = await notifyRadiusNasChange('delete', nasDevice);
 
     res.json({
       success: true,
-      message: 'NAS device deleted successfully'
+      message: 'NAS device deleted successfully',
+      data: { radiusReload }
     });
 
   } catch (error) {
@@ -392,7 +432,8 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!nasDevice.nasname) {
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    if (!mikrotikHost) {
       return res.status(400).json({
         success: false,
         message: 'NAS device IP address not configured'
@@ -410,7 +451,10 @@ router.post('/:id/test', authenticateToken, async (req, res) => {
       });
     }
 
-    const testResult = await MikrotikService.testConnection(nasDevice.nasname, apiUsername, apiPassword);
+    const testResult = await withMikrotikTimeout(
+      MikrotikService.testConnection(mikrotikHost, apiUsername, apiPassword),
+      'test connection'
+    );
 
     res.json(testResult);
 
@@ -437,7 +481,8 @@ router.get('/:id/mikrotik-info', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!nasDevice.nasname) {
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    if (!mikrotikHost) {
       return res.status(400).json({
         success: false,
         message: 'NAS device IP address not configured'
@@ -455,7 +500,10 @@ router.get('/:id/mikrotik-info', authenticateToken, async (req, res) => {
       });
     }
 
-    const mikrotikInfo = await MikrotikService.getMikrotikInfo(nasDevice.nasname, apiUsername, apiPassword);
+    const mikrotikInfo = await withMikrotikTimeout(
+      MikrotikService.getMikrotikInfo(mikrotikHost, apiUsername, apiPassword),
+      'info'
+    );
 
     res.json(mikrotikInfo);
 
@@ -483,7 +531,8 @@ router.get('/:id/interface/:interfaceName', authenticateToken, async (req, res) 
       });
     }
 
-    if (!nasDevice.nasname) {
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    if (!mikrotikHost) {
       return res.status(400).json({
         success: false,
         message: 'NAS device IP address not configured'
@@ -501,7 +550,7 @@ router.get('/:id/interface/:interfaceName', authenticateToken, async (req, res) 
       });
     }
 
-    const interfaceDetails = await MikrotikService.getInterfaceDetails(nasDevice.nasname, apiUsername, apiPassword, interfaceName);
+    const interfaceDetails = await MikrotikService.getInterfaceDetails(mikrotikHost, apiUsername, apiPassword, interfaceName);
 
     res.json(interfaceDetails);
 
@@ -528,7 +577,8 @@ router.get('/:id/ip-addresses', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!nasDevice.nasname) {
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    if (!mikrotikHost) {
       return res.status(400).json({
         success: false,
         message: 'NAS device IP address not configured'
@@ -545,7 +595,10 @@ router.get('/:id/ip-addresses', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await MikrotikService.getIpAddresses(nasDevice.nasname, apiUsername, apiPassword);
+    const result = await withMikrotikTimeout(
+      MikrotikService.getIpAddresses(mikrotikHost, apiUsername, apiPassword),
+      'ip addresses'
+    );
     res.json(result);
 
   } catch (error) {
@@ -597,7 +650,8 @@ router.post('/:id/ip-addresses', authenticateToken, async (req, res) => {
       disabled: disabled || false
     };
 
-    const result = await MikrotikService.addIpAddress(nasDevice.nasname, apiUsername, apiPassword, addressData);
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    const result = await MikrotikService.addIpAddress(mikrotikHost, apiUsername, apiPassword, addressData);
     res.json(result);
 
   } catch (error) {
@@ -641,7 +695,8 @@ router.put('/:id/ip-addresses/:addressId', authenticateToken, async (req, res) =
     if (comment !== undefined) addressData.comment = comment;
     if (disabled !== undefined) addressData.disabled = disabled;
 
-    const result = await MikrotikService.updateIpAddress(nasDevice.nasname, apiUsername, apiPassword, addressId, addressData);
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    const result = await MikrotikService.updateIpAddress(mikrotikHost, apiUsername, apiPassword, addressId, addressData);
     res.json(result);
 
   } catch (error) {
@@ -678,7 +733,8 @@ router.delete('/:id/ip-addresses/:addressId', authenticateToken, async (req, res
       });
     }
 
-    const result = await MikrotikService.deleteIpAddress(nasDevice.nasname, apiUsername, apiPassword, addressId);
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    const result = await MikrotikService.deleteIpAddress(mikrotikHost, apiUsername, apiPassword, addressId);
     res.json(result);
 
   } catch (error) {
@@ -704,7 +760,8 @@ router.get('/:id/routes', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!nasDevice.nasname) {
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    if (!mikrotikHost) {
       return res.status(400).json({
         success: false,
         message: 'NAS device IP address not configured'
@@ -721,7 +778,10 @@ router.get('/:id/routes', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await MikrotikService.getRoutes(nasDevice.nasname, apiUsername, apiPassword);
+    const result = await withMikrotikTimeout(
+      MikrotikService.getRoutes(mikrotikHost, apiUsername, apiPassword),
+      'routes'
+    );
     res.json(result);
 
   } catch (error) {
@@ -759,7 +819,8 @@ router.post('/:id/routes', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await MikrotikService.addRoute(nasDevice.nasname, apiUsername, apiPassword, routeData);
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    const result = await MikrotikService.addRoute(mikrotikHost, apiUsername, apiPassword, routeData);
     res.json(result);
 
   } catch (error) {
@@ -797,7 +858,8 @@ router.put('/:id/routes/:routeId', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await MikrotikService.updateRoute(nasDevice.nasname, apiUsername, apiPassword, routeId, routeData);
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    const result = await MikrotikService.updateRoute(mikrotikHost, apiUsername, apiPassword, routeId, routeData);
     res.json(result);
 
   } catch (error) {
@@ -834,7 +896,8 @@ router.delete('/:id/routes/:routeId', authenticateToken, async (req, res) => {
       });
     }
 
-    const result = await MikrotikService.deleteRoute(nasDevice.nasname, apiUsername, apiPassword, routeId);
+    const mikrotikHost = resolveMikrotikHost(nasDevice);
+    const result = await MikrotikService.deleteRoute(mikrotikHost, apiUsername, apiPassword, routeId);
     res.json(result);
 
   } catch (error) {

@@ -28,7 +28,13 @@ router.post('/login', [
       where: { username },
       include: [
         { model: Tenant, as: 'tenant' },
-        { model: Role, as: 'role' }
+        { model: Role, as: 'role' },
+        {
+          model: Role,
+          as: 'roles',
+          attributes: ['id', 'name', 'display_name'],
+          through: { attributes: [] }
+        }
       ]
     });
 
@@ -60,12 +66,17 @@ router.post('/login', [
     // Update last login
     await member.update({ last_login: new Date() });
 
+    const resolvedRoleName =
+      member.role?.name ||
+      (member.roles && member.roles.length > 0 ? member.roles[0].name : null) ||
+      'member';
+
     // Generate JWT token
     const token = jwt.sign(
       {
         userId: member.id,
         username: member.username,
-        role: member.role?.name || 'member',
+        role: resolvedRoleName,
         tenantId: member.tenant_id
       },
       process.env.JWT_SECRET,
@@ -83,7 +94,7 @@ router.post('/login', [
           email: member.email,
           first_name: member.name,
           last_name: member.lastname,
-          role: member.role?.name || 'member',
+          role: resolvedRoleName,
           tenant_id: member.tenant_id
         }
       }

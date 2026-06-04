@@ -101,17 +101,47 @@ class MemberService {
   // Create new member
   async createMember(memberData, tenantId) {
     try {
+      const roleIds = Array.isArray(memberData.roleIds)
+        ? memberData.roleIds.map((id) => parseInt(id, 10)).filter((id) => !Number.isNaN(id))
+        : [];
+      const primaryRoleId =
+        roleIds[0] ||
+        (memberData.role_id ? parseInt(memberData.role_id, 10) : null) ||
+        null;
+
+      const { roleIds: _roleIds, tenant_id: _tenantId, ...fields } = memberData;
+
       const member = await Member.create({
-        ...memberData,
-        tenant_id: tenantId
+        username: fields.username,
+        password: fields.password,
+        name: fields.name,
+        lastname: fields.lastname,
+        email: fields.email,
+        phone: fields.phone,
+        tc: fields.tc,
+        is_active: fields.is_active !== undefined ? fields.is_active : true,
+        tenant_id: tenantId,
+        role_id: primaryRoleId
       });
 
-      // Assign roles if provided
-      if (memberData.roleIds && memberData.roleIds.length > 0) {
-        await member.setRoles(memberData.roleIds);
+      if (roleIds.length > 0) {
+        await member.setRoles(roleIds);
       }
 
-      return { success: true, data: member };
+      const created = await Member.findByPk(member.id, {
+        include: [
+          { model: Tenant, as: 'tenant', attributes: ['id', 'name'] },
+          {
+            model: Role,
+            as: 'roles',
+            attributes: ['id', 'name', 'display_name'],
+            through: { attributes: [] }
+          }
+        ],
+        attributes: { exclude: ['password'] }
+      });
+
+      return { success: true, data: created };
     } catch (error) {
       console.error('Error creating member:', error);
       return { success: false, error: error.message };
@@ -141,8 +171,18 @@ class MemberService {
 
       // Update roles if provided
       if (memberData.roleIds !== undefined) {
-        const roles = await Role.findAll({ where: { id: memberData.roleIds } });
+        const roleIds = Array.isArray(memberData.roleIds)
+          ? memberData.roleIds.map((id) => parseInt(id, 10)).filter((id) => !Number.isNaN(id))
+          : [];
+        const roles = roleIds.length
+          ? await Role.findAll({ where: { id: roleIds } })
+          : [];
         await member.setRoles(roles);
+        if (roleIds.length > 0) {
+          await member.update({ role_id: roleIds[0] });
+        } else {
+          await member.update({ role_id: null });
+        }
       }
 
       // Fetch updated member with roles

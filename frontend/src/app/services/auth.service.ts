@@ -168,7 +168,7 @@ export class AuthService {
   }
 
   canViewTenants(): boolean {
-    return this.hasModuleAccess('tenant') || this.hasModuleAccess('tenants');
+    return this.isSuperAdmin();
   }
 
   canViewUsers(): boolean {
@@ -185,5 +185,9 @@ export class AuthService {
 
   canViewLogs(): boolean {
     return this.hasModuleAccess('logs');
+  }
+
+  canViewBtkLogs(): boolean {
+    return this.canViewUsers() || this.isSuperAdmin();
   }
 }

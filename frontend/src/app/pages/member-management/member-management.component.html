@@ -212,12 +212,37 @@
             <div class="col-md-6" *ngIf="isSuperAdmin">
               <div class="form-group">
                 <label>Tenant *</label>
-                <select class="form-control" formControlName="tenant_id">
+                <select class="form-control" formControlName="tenant_id"
+                        (change)="onMemberTenantChange($any($event.target).value)">
                   <option value="">Select Tenant</option>
                   <option *ngFor="let tenant of tenants" [value]="tenant.id">{{ tenant.name }}</option>
                 </select>
               </div>
             </div>
+          </div>
+
+          <div class="form-group">
+            <label>Roles</label>
+            <div *ngIf="memberModalRolesLoading" class="text-muted">Loading roles...</div>
+            <div *ngIf="!memberModalRolesLoading" class="row">
+              <div class="col-md-6" *ngFor="let role of memberModalRoles">
+                <div class="form-check">
+                  <input class="form-check-input" type="checkbox"
+                         [id]="'member_role_' + role.id"
+                         [checked]="isMemberRoleSelected(role.id)"
+                         (change)="toggleMemberRole(role.id)">
+                  <label class="form-check-label" [for]="'member_role_' + role.id">
+                    {{ role.display_name }}
+                    <small class="text-muted d-block">{{ role.name }}</small>
+                  </label>
+                </div>
+              </div>
+            </div>
+            <small class="text-muted">For tenant admin access, select <strong>Tenant Administrator</strong>.</small>
+          </div>
+
+          <div *ngIf="saveMemberError" class="alert alert-danger mt-2 mb-0">
+            {{ saveMemberError }}
           </div>
           
         </form>

@@ -1,7 +1,9 @@
 const express = require('express');
-const { Op, literal } = require('sequelize');
+const { Op, literal, fn, col } = require('sequelize');
 const { Radcheck, UsersInfo, Tenant, Package, Radreply, Radippool, MetroIP, Radacct, NasDevice } = require('../models');
 const MikrotikService = require('../services/MikrotikService');
+const { RADIUS_PASSWORD_ATTR } = require('../constants/radius');
+const NatMappingHistoryService = require('../services/NatMappingHistoryService');
 
 const router = express.Router();
 
@@ -38,46 +40,58 @@ router.get('/', async (req, res) => {
       };
     }
 
-    console.log('🔍 Backend - userTenantId:', userTenantId);
-    console.log('🔍 Backend - requestedTenantId:', requestedTenantId);
-    console.log('🔍 Backend - whereClause:', whereClause);
-    
-    // Get unique usernames first (to avoid duplicates from multiple attributes)
-    const { count, rows: radcheckUsers } = await Radcheck.findAndCountAll({
-      where: {
-        ...whereClause,
-        attribute: 'Cleartext-Password'  // Correct capitalization
+    const passwordWhere = {
+      ...whereClause,
+      attribute: RADIUS_PASSWORD_ATTR
+    };
+
+    const userIncludes = [
+      {
+        model: UsersInfo,
+        as: 'userInfo',
+        required: false,
+        include: [
+          {
+            model: Package,
+            as: 'package',
+            required: false,
+            foreignKey: 'packet',
+            sourceKey: 'packet'
+          }
+        ]
       },
-      limit,
-      offset,
-      order: [['id', 'DESC']],
-      group: ['Radcheck.username'],  // Group by username to get unique records
-      distinct: true,  // Count distinct usernames
-      include: [
-        {
-          model: UsersInfo,
-          as: 'userInfo',
-          required: false,
-          include: [
-            {
-              model: Package,
-              as: 'package',
-              required: false,
-              foreignKey: 'packet',
-              sourceKey: 'packet'
-            }
-          ]
-        },
-        {
-          model: Tenant,
-          as: 'tenant',
-          required: false
-        }
-      ]
+      {
+        model: Tenant,
+        as: 'tenant',
+        required: false
+      }
+    ];
+
+    // MySQL 8 ONLY_FULL_GROUP_BY: pick latest radcheck row per username, then load relations
+    const count = await Radcheck.count({
+      where: passwordWhere,
+      distinct: true,
+      col: 'username'
     });
 
-    console.log('🔍 Backend - Found radcheckUsers:', radcheckUsers.length);
-    console.log('🔍 Backend - Total count:', count);
+    const idRows = await Radcheck.findAll({
+      attributes: [[fn('MAX', col('id')), 'id']],
+      where: passwordWhere,
+      group: ['username'],
+      order: [[fn('MAX', col('id')), 'DESC']],
+      limit,
+      offset,
+      raw: true
+    });
+
+    const userIds = idRows.map((row) => row.id);
+    const radcheckUsers = userIds.length
+      ? await Radcheck.findAll({
+          where: { id: userIds },
+          order: [['id', 'DESC']],
+          include: userIncludes
+        })
+      : [];
 
     // Helper function to get IP address, expiration and router info for a user
     const getUserIpAddress = async (username, tenantId) => {
@@ -200,6 +214,7 @@ router.get('/', async (req, res) => {
       return {
       id: radcheck.id,
       username: radcheck.username,
+      password: radcheck.value || '',
       first_name: radcheck.userInfo?.name || '',
       last_name: radcheck.userInfo?.lastname || '',
       email: radcheck.userInfo?.email || '',
@@ -252,7 +267,7 @@ router.get('/', async (req, res) => {
       package_id: radcheck.userInfo?.package?.id || null,
       package_name: radcheck.userInfo?.packet || '',
       tenant_id: radcheck.tenant_id,
-      is_active: radcheck.attribute === 'Cleartext-password',
+      is_active: radcheck.userInfo?.is_active ?? 1,
       created_at: radcheck.created_at,
       updated_at: radcheck.updated_at,
       package: radcheck.userInfo?.package ? {
@@ -300,7 +315,7 @@ router.get('/:id', async (req, res) => {
     const { id } = req.params;
     const tenantId = req.user?.tenantId;
 
-    const whereClause = { id };
+    const whereClause = { id, attribute: RADIUS_PASSWORD_ATTR };
     if (tenantId !== null && tenantId !== undefined && tenantId !== 0) {
       whereClause.tenant_id = tenantId;
     }
@@ -332,13 +347,14 @@ router.get('/:id', async (req, res) => {
     const user = {
       id: radcheckUser.id,
       username: radcheckUser.username,
+      password: radcheckUser.value || '',
       first_name: radcheckUser.userInfo?.name || '',
       last_name: radcheckUser.userInfo?.lastname || '',
       email: radcheckUser.userInfo?.email || '',
       phone: radcheckUser.userInfo?.phone || '',
       package_id: null,
       tenant_id: radcheckUser.tenant_id,
-      is_active: radcheckUser.attribute === 'Cleartext-password',
+      is_active: radcheckUser.userInfo?.is_active ?? 1,
       created_at: radcheckUser.created_at,
       updated_at: radcheckUser.updated_at,
       package: null,
@@ -392,29 +408,32 @@ router.post('/', async (req, res) => {
 
     // Get package name if package_id is provided
     let packageName = null;
+    let packageItem = null;
     if (package_id) {
-      const packageItem = await Package.findByPk(package_id);
+      packageItem = await Package.findByPk(package_id);
       if (packageItem) {
         packageName = packageItem.name;
       }
     }
 
     // Create Radcheck entries
-    await Radcheck.create({
+    const radcheckUser = await Radcheck.create({
       username,
-      attribute: 'Cleartext-password',
+      attribute: RADIUS_PASSWORD_ATTR,
       op: ':=',
       value: password,
       tenant_id: userTenantId
     });
 
-    await Radcheck.create({
-      username,
-      attribute: 'Expiration',
-      op: ':=',
-      value: '1 Oct 2026 00:00',
-      tenant_id: userTenantId
-    });
+    if (!expiration) {
+      await Radcheck.create({
+        username,
+        attribute: 'Expiration',
+        op: ':=',
+        value: '1 Oct 2026 00:00',
+        tenant_id: userTenantId
+      });
+    }
 
     // Create UsersInfo entry
     const userInfo = await UsersInfo.create({
@@ -588,7 +607,7 @@ router.put('/:id', async (req, res) => {
       ftipi, osifre, adurum, sabitip, atipi, invoice_type, is_active, expiration
     } = req.body;
 
-    const whereClause = { id };
+    const whereClause = { id, attribute: RADIUS_PASSWORD_ATTR };
     if (tenantId !== null && tenantId !== undefined && tenantId !== 0) {
       whereClause.tenant_id = tenantId;
     }
@@ -602,6 +621,8 @@ router.put('/:id', async (req, res) => {
       });
     }
 
+    const previousUsername = radcheckUser.username;
+
     // Determine tenant_id for super admin
     let userTenantId = tenant_id;
     if (tenant_id === null || tenant_id === undefined) {
@@ -610,19 +631,31 @@ router.put('/:id', async (req, res) => {
 
     // Get package name if package_id is provided
     let packageName = null;
+    let packageItem = null;
     if (package_id) {
-      const packageItem = await Package.findByPk(package_id);
+      packageItem = await Package.findByPk(package_id);
       if (packageItem) {
         packageName = packageItem.name;
       }
     }
 
-    // Update Radcheck entry
+    // Update password row in radcheck
     await radcheckUser.update({
       username,
       ...(password && { value: password }),
       tenant_id: userTenantId
     });
+
+    if (username && username !== previousUsername) {
+      await Radcheck.update(
+        { username },
+        { where: { username: previousUsername, tenant_id: userTenantId } }
+      );
+      await Radreply.update(
+        { username },
+        { where: { username: previousUsername } }
+      );
+    }
 
     // Update UsersInfo entry
     const userInfo = await UsersInfo.findOne({ where: { username: radcheckUser.username } });
@@ -871,6 +904,19 @@ router.delete('/:id', async (req, res) => {
     });
 
     // Release IP addresses from both IP Pool and Metro IP
+    const poolsToRelease = await Radippool.findAll({
+      where: { username: radcheckUser.username, tenant_id: tenantId }
+    });
+    for (const p of poolsToRelease) {
+      await NatMappingHistoryService.recordChange({
+        tenantId,
+        username: radcheckUser.username,
+        framedipaddress: p.framedipaddress,
+        nasipaddress: null,
+        port: null,
+        source: 'user_deleted'
+      });
+    }
     await Radippool.update(
       { username: null },
       { 
@@ -967,7 +1013,7 @@ router.post('/assign-ip', async (req, res) => {
     if (isStatic) {
       // Static IP - update Metro IP
       await MetroIP.update(
-        { user: username },
+        { user: username, binding_type: 'assigned' },
         { 
           where: { 
             ipaddress: ipAddress,
@@ -1000,6 +1046,12 @@ router.post('/assign-ip', async (req, res) => {
           } 
         }
       );
+      const assignedPool = await Radippool.findOne({
+        where: { username, framedipaddress: ipAddress, tenant_id: tenantId }
+      });
+      if (assignedPool) {
+        await NatMappingHistoryService.recordFromRadippool(assignedPool, 'assign_ip');
+      }
     }
 
     // Add IP to radreply
@@ -1182,6 +1234,15 @@ router.get('/:username/extra-ips', async (req, res) => {
   try {
     const { username } = req.params;
     const primaryIp = await getPrimaryIp(username);
+    const assignedMetroIps = await MetroIP.findAll({
+      where: { user: username },
+      attributes: ['ipaddress']
+    });
+    const gatewayCandidates = new Set(
+      [primaryIp, ...assignedMetroIps.map(m => m.ipaddress)]
+        .filter(Boolean)
+        .map(ip => String(ip).trim())
+    );
     
     // Determine if user has static or dynamic IP
     const isPrivate = primaryIp && /^(10\.|172\.(1[6-9]|2[0-9]|3[01])\.|192\.168\.)/.test(primaryIp);
@@ -1205,7 +1266,11 @@ router.get('/:username/extra-ips', async (req, res) => {
         if (r?.success) {
           const list = r.data.routes || [];
           routesOnMikrotik = list
-            .filter(rt => (primaryIp && rt.gateway === primaryIp) || (rt.comment && rt.comment.includes(username)))
+            .filter(rt => {
+              const gateway = String(rt.gateway || '').trim();
+              const comment = String(rt.comment || '');
+              return (gateway && gatewayCandidates.has(gateway)) || comment.includes(username);
+            })
             .map(rt => ({
               dst: rt['dst-address'] || rt.dstAddress || '0.0.0.0/0',
               gateway: rt.gateway || '',
@@ -1279,9 +1344,9 @@ router.post('/:username/extra-ips', async (req, res) => {
     const ipOnly = ip.includes('/') ? ip.split('/')[0] : ip;
     const existing = await MetroIP.findOne({ where: { ipaddress: ipOnly } });
     if (!existing) {
-      await MetroIP.create({ ipaddress: ipOnly, user: username, tenant_id: tenantId ?? 1, ip_type: 2 });
+      await MetroIP.create({ ipaddress: ipOnly, user: username, tenant_id: tenantId ?? 1, ip_type: 2, binding_type: 'routed' });
     } else {
-      await existing.update({ user: username, tenant_id: tenantId ?? existing.tenant_id, ip_type: 2 });
+      await existing.update({ user: username, tenant_id: tenantId ?? existing.tenant_id, ip_type: 2, binding_type: 'routed' });
     }
 
     res.json({ success: true, message: 'Extra IP routed and recorded' });
@@ -1317,7 +1382,7 @@ router.delete('/:username/extra-ips/:ip', async (req, res) => {
 
     // MetroIP: clear assignment
     const ipOnly = ip.includes('/') ? ip.split('/')[0] : ip;
-    await MetroIP.update({ user: null, ip_type: 0 }, { where: { ipaddress: ipOnly, user: username, tenant_id: tenantId } });
+    await MetroIP.update({ user: null, ip_type: 0, binding_type: 'assigned' }, { where: { ipaddress: ipOnly, user: username, tenant_id: tenantId } });
 
     res.json({ success: true, message: 'Extra IP removed' });
   } catch (error) {
@@ -1386,7 +1451,7 @@ router.get('/:username/nat-status', async (req, res) => {
 
     // Find user's actual tenant_id
     const userRadcheck = await Radcheck.findOne({
-      where: { username, attribute: 'Cleartext-Password' }
+      where: { username, attribute: RADIUS_PASSWORD_ATTR }
     });
 
     const userTenantId = userRadcheck?.tenant_id || adminTenantId;
@@ -1473,6 +1538,8 @@ router.get('/:username/nat-status', async (req, res) => {
                   nasipaddress: toAddresses,
                   port: portRange
                 });
+                await poolEntry.reload();
+                await NatMappingHistoryService.recordFromRadippool(poolEntry, 'mikrotik_sync');
                 console.log(`[NAT Status] Radippool synced with Mikrotik`);
               }
             } catch (syncError) {
@@ -1516,7 +1583,7 @@ router.post('/:username/write-nat', async (req, res) => {
 
     // Find user's actual tenant_id from Radcheck
     const userRadcheck = await Radcheck.findOne({
-      where: { username, attribute: 'Cleartext-Password' }
+      where: { username, attribute: RADIUS_PASSWORD_ATTR }
     });
 
     if (!userRadcheck) {
@@ -1628,6 +1695,8 @@ router.post('/:username/write-nat', async (req, res) => {
           nasipaddress: sharedPublicIp,
           port: portRange
         });
+        await poolEntry.reload();
+        await NatMappingHistoryService.recordFromRadippool(poolEntry, 'write_nat');
         console.log(`[Write NAT] Radippool updated with NAT configuration`);
       } else {
         // Create new entry if user is not in pool yet
@@ -1646,6 +1715,8 @@ router.post('/:username/write-nat', async (req, res) => {
             nasipaddress: sharedPublicIp,
             port: portRange
           });
+          await availablePoolEntry.reload();
+          await NatMappingHistoryService.recordFromRadippool(availablePoolEntry, 'write_nat');
           console.log(`[Write NAT] Available pool entry assigned to user with NAT config`);
         } else {
           console.warn(`[Write NAT] No pool entry found for private IP ${privateIp}`);

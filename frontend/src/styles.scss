@@ -1,19 +1,23 @@
-/* You can add global styles to this file, and also import other style files */
+/* ISS Meridian design system */
+@import 'assets/css/iss-theme.css';
 
-// Bootstrap
+// Bootstrap — override before import
+$primary: #1a5c4a;
+$secondary: #5f6775;
+$success: #2d6a4f;
+$info: #3d5a80;
+$warning: #b45309;
+$danger: #9b2c2c;
+$body-bg: #e8e5de;
+$body-color: #1a1f28;
+$border-radius: 6px;
+$border-radius-lg: 10px;
+$font-family-sans-serif: 'DM Sans', system-ui, -apple-system, sans-serif;
+$font-size-base: 0.9375rem;
+
 @import 'bootstrap/scss/bootstrap';
-
-// Font Awesome
 @import '@fortawesome/fontawesome-free/css/all.min.css';
-
-// ArchitectUI CSS
 @import 'assets/css/architectui.css';
-
-// Custom styles
-body {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  background-color: #f8f9fa;
-}
 
 .app-container {
   min-height: 100vh;
@@ -21,204 +25,25 @@ body {
   flex-direction: column;
 }
 
-// Sidebar styles
-.sidebar {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  height: 100vh;
-  width: 250px;
-  position: fixed;
-  left: 0;
-  top: 0;
-  z-index: 100000;
-  transition: all 0.3s ease;
-  overflow: visible;
-  display: flex;
-  flex-direction: column;
-  
-  &.collapsed {
-    width: 60px;
-  }
+.sidebar.collapsed {
+  width: var(--iss-sidebar-collapsed) !important;
 }
 
-// Top navigation - styles moved to layout component
-
-// When sidebar is collapsed - global styles
-body.sidebar-collapsed .top-nav {
-  margin-left: 60px !important;
-}
-
-body.sidebar-collapsed .main-content {
-  margin-left: 60px !important;
-}
-
-// Main content
-.main-content {
-  margin-left: 250px;
-  min-height: 100vh;
-  transition: all 0.3s ease;
-}
-
-// Content area
 .content-area {
-  padding: 20px;
-  background-color: #f8f9fa;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--iss-topbar-h));
 }
 
-// Cards
-.card {
-  border: none;
-  border-radius: 10px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  margin-bottom: 20px;
-  
-  .card-header {
-    background: #fff;
-    border-bottom: 1px solid #e9ecef;
-    border-radius: 10px 10px 0 0 !important;
-    padding: 15px 20px;
-  }
-}
-
-// Buttons
-.btn {
-  border-radius: 6px;
-  font-weight: 500;
-  padding: 8px 16px;
-  
-  &.btn-primary {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    border: none;
-    
-    &:hover {
-      transform: translateY(-1px);
-      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
-    }
-  }
-}
-
-// Tables
-.table {
-  th {
-    border-top: none;
-    font-weight: 600;
-    color: #495057;
-    background-color: #f8f9fa;
-  }
-}
-
-// Navigation
-.nav-list {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  
-  .nav-item {
-    margin-bottom: 5px;
-    
-    .nav-link {
-      color: rgba(255,255,255,0.8);
-      padding: 12px 20px;
-      display: flex;
-      align-items: center;
-      text-decoration: none;
-      transition: all 0.3s ease;
-      border-radius: 0 25px 25px 0;
-      margin-right: 20px;
-      
-      &:hover {
-        color: #fff;
-        background-color: rgba(255,255,255,0.1);
-      }
-      
-      i {
-        margin-right: 10px;
-        width: 20px;
-        text-align: center;
-      }
-    }
-    
-    &.active .nav-link {
-      color: #fff;
-      background-color: rgba(255,255,255,0.2);
-    }
-  }
-  
-  .nav-section {
-    padding: 20px 20px 10px;
-    
-    .nav-section-title {
-      color: rgba(255,255,255,0.6);
-      font-size: 12px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 1px;
-    }
-  }
-}
-
-// User profile dropdown
-.user-profile-dropdown {
-  position: relative;
-  
-  .user-profile-menu {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-    min-width: 250px;
-    opacity: 0;
-    visibility: hidden;
-    transform: translateY(-10px);
-    transition: all 0.3s ease;
-    z-index: 1000;
-    
-    &.show {
-      opacity: 1;
-      visibility: visible;
-      transform: translateY(0);
-    }
-  }
-}
-
-// Modal Override - Force Mikrotik Management Modal to top
-.modal[style*="z-index: 999999"] {
-  z-index: 999999 !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  width: 100% !important;
-  height: 100% !important;
-  background-color: rgba(0, 0, 0, 0.5) !important;
-}
-
-.modal[style*="z-index: 999999"] .modal-dialog {
-  z-index: 999999 !important;
-  position: fixed !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) !important;
-  margin: 0 !important;
-  margin-left: 125px !important; /* Ana sidebar genişliği kadar sağa kaydır */
-}
-
-// Responsive
 @media (max-width: 768px) {
   .sidebar {
     transform: translateX(-100%);
-    
+
     &.show {
       transform: translateX(0);
     }
   }
-  
-  .main-content {
-    margin-left: 0;
-  }
-  
+
+  .main-content,
   .top-nav {
-    left: 0;
+    margin-left: 0 !important;
   }
 }

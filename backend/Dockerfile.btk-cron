@@ -1,0 +1,27 @@
+FROM node:18-alpine
+
+ARG SUPERCRONIC_VERSION=0.2.33
+RUN apk add --no-cache curl su-exec zip \
+  && curl -fsSL -o /usr/local/bin/supercronic \
+    "https://github.com/aptible/supercronic/releases/download/v${SUPERCRONIC_VERSION}/supercronic-linux-amd64" \
+  && chmod +x /usr/local/bin/supercronic
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm ci --only=production
+
+COPY . .
+
+RUN addgroup -g 1001 -S nodejs \
+  && adduser -S nodejs -u 1001 \
+  && mkdir -p /data/btk-logs /var/log/btk-cron \
+  && chown -R nodejs:nodejs /app /data/btk-logs /var/log/btk-cron
+
+COPY crontab/btk-hourly /etc/btk-crontab
+
+COPY docker-btk-cron-entrypoint.sh /usr/local/bin/docker-btk-cron-entrypoint.sh
+RUN chmod +x /usr/local/bin/docker-btk-cron-entrypoint.sh
+
+ENTRYPOINT ["docker-btk-cron-entrypoint.sh"]
+CMD ["supercronic", "/etc/btk-crontab"]

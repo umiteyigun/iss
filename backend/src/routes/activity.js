@@ -1,6 +1,7 @@
 const express = require('express');
 const { Op, fn, col, literal } = require('sequelize');
 const { Radacct, Radcheck, Tenant } = require('../models');
+const { RADIUS_PASSWORD_ATTR } = require('../constants/radius');
 const { authenticateToken } = require('../middleware/auth');
 const { requireModulePermission } = require('../middleware/moduleAuth');
 
@@ -23,17 +24,17 @@ router.get('/recent-sessions', authenticateToken, requireModulePermission('activ
     if (tenantFilter) {
       if (tenantFilter === 'unassigned') {
         whereClause.username = {
-          [Op.in]: literal(`(SELECT username FROM radcheck WHERE attribute = 'Cleartext-password' AND (tenant_id IS NULL OR tenant_id = 0))`)
+          [Op.in]: literal(`(SELECT username FROM radcheck WHERE attribute = '${RADIUS_PASSWORD_ATTR}' AND (tenant_id IS NULL OR tenant_id = 0))`)
         };
       } else {
         whereClause.username = {
-          [Op.in]: literal(`(SELECT username FROM radcheck WHERE attribute = 'Cleartext-password' AND tenant_id = ${parseInt(tenantFilter)})`)
+          [Op.in]: literal(`(SELECT username FROM radcheck WHERE attribute = '${RADIUS_PASSWORD_ATTR}' AND tenant_id = ${parseInt(tenantFilter)})`)
         };
       }
     } else if (userTenantId !== 0 && userTenantId !== null) {
       // If no tenant filter specified and user is not super admin, restrict to user's tenant
       whereClause.username = {
-        [Op.in]: literal(`(SELECT username FROM radcheck WHERE attribute = 'Cleartext-password' AND tenant_id = ${userTenantId})`)
+        [Op.in]: literal(`(SELECT username FROM radcheck WHERE attribute = '${RADIUS_PASSWORD_ATTR}' AND tenant_id = ${userTenantId})`)
       };
     }
     
@@ -58,7 +59,7 @@ router.get('/recent-sessions', authenticateToken, requireModulePermission('activ
         as: 'user',
         attributes: ['tenant_id'],
         required: false,
-        where: { attribute: 'Cleartext-password' },
+        where: { attribute: RADIUS_PASSWORD_ATTR },
         include: [
           {
             model: Tenant,
@@ -118,7 +119,7 @@ router.get('/recent-sessions', authenticateToken, requireModulePermission('activ
 });
 
 // GET /api/activity/users
-// Returns list of users (from radcheck Cleartext-password entries) for convenience
+// Returns list of users (from radcheck password entries) for convenience
 router.get('/users', authenticateToken, requireModulePermission('activity'), async (req, res) => {
   try {
     const userTenantId = req.user?.tenantId;
@@ -128,7 +129,7 @@ router.get('/users', authenticateToken, requireModulePermission('activity'), asy
     const search = req.query.search || '';
     const tenantFilter = req.query.tenant || '';
 
-    const whereClause = { attribute: 'Cleartext-password' };
+    const whereClause = { attribute: RADIUS_PASSWORD_ATTR };
     if (search) {
       whereClause.username = { [Op.like]: `%${search}%` };
     }
@@ -223,7 +224,7 @@ router.get('/users/:username/history', authenticateToken, requireModulePermissio
       const userRecord = await Radcheck.findOne({
         where: { 
           username,
-          attribute: 'Cleartext-password',
+          attribute: RADIUS_PASSWORD_ATTR,
           tenant_id: userTenantId
         }
       });

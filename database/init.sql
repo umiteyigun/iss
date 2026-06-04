@@ -224,6 +224,19 @@ CREATE TABLE IF NOT EXISTS `radreply` (
   INDEX `idx_username` (`username`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- radpostauth: Authentication accept/reject log (required by FreeRADIUS sql post-auth)
+CREATE TABLE IF NOT EXISTS `radpostauth` (
+  `id` INT NOT NULL AUTO_INCREMENT,
+  `username` VARCHAR(64) NOT NULL DEFAULT '',
+  `pass` VARCHAR(64) NOT NULL DEFAULT '',
+  `reply` VARCHAR(32) NOT NULL DEFAULT '',
+  `authdate` TIMESTAMP(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),
+  `class` VARCHAR(64) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  INDEX `idx_username` (`username`),
+  INDEX `idx_class` (`class`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- radacct: Accounting records
 CREATE TABLE IF NOT EXISTS `radacct` (
   `radacctid` BIGINT NOT NULL AUTO_INCREMENT,
@@ -235,7 +248,9 @@ CREATE TABLE IF NOT EXISTS `radacct` (
   `nasportid` VARCHAR(15) DEFAULT NULL,
   `nasporttype` VARCHAR(32) DEFAULT NULL,
   `acctstarttime` TIMESTAMP NULL DEFAULT NULL,
+  `acctupdatetime` DATETIME NULL DEFAULT NULL,
   `acctstoptime` TIMESTAMP NULL DEFAULT NULL,
+  `acctinterval` INT DEFAULT NULL,
   `acctsessiontime` INT DEFAULT NULL,
   `acctauthentic` VARCHAR(32) DEFAULT NULL,
   `connectinfo_start` VARCHAR(50) DEFAULT NULL,
@@ -248,6 +263,11 @@ CREATE TABLE IF NOT EXISTS `radacct` (
   `servicetype` VARCHAR(32) DEFAULT NULL,
   `framedprotocol` VARCHAR(32) DEFAULT NULL,
   `framedipaddress` VARCHAR(15) DEFAULT NULL,
+  `framedipv6address` VARCHAR(45) NOT NULL DEFAULT '',
+  `framedipv6prefix` VARCHAR(45) NOT NULL DEFAULT '',
+  `framedinterfaceid` VARCHAR(44) NOT NULL DEFAULT '',
+  `delegatedipv6prefix` VARCHAR(45) NOT NULL DEFAULT '',
+  `class` VARCHAR(64) DEFAULT NULL,
   PRIMARY KEY (`radacctid`),
   INDEX `idx_username` (`username`),
   INDEX `idx_nasip` (`nasipaddress`),

@@ -1,78 +1,91 @@
-<div class="login-container">
-  <!-- Language Selector -->
-  <div class="language-selector-top">
-    <app-language-selector></app-language-selector>
-  </div>
-  
-  <div class="login-card">
-    <div class="login-header">
-      <h2>{{ 'login.title' | translate }}</h2>
-      <p>{{ 'login.subtitle' | translate }}</p>
+<div class="login-shell">
+  <aside class="login-brand" aria-hidden="true">
+    <div class="brand-inner">
+      <div class="brand-mark">
+        <span class="brand-iss">ISS</span>
+        <span class="brand-dot"></span>
+      </div>
+      <p class="brand-line">RADIUS operasyon merkezi</p>
+      <ul class="brand-stats">
+        <li><span class="stat-label">NAS</span><span class="stat-val">●</span></li>
+        <li><span class="stat-label">Pool</span><span class="stat-val">●</span></li>
+        <li><span class="stat-label">Acct</span><span class="stat-val">●</span></li>
+      </ul>
+    </div>
+    <div class="brand-grid" aria-hidden="true"></div>
+  </aside>
+
+  <main class="login-main">
+    <div class="language-selector-top">
+      <app-language-selector></app-language-selector>
     </div>
 
-    <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
-      <!-- Error Message -->
-      <div *ngIf="error" class="alert alert-danger">
-        <i class="fa fa-exclamation-triangle"></i>
-        {{ error }}
+    <div class="login-card">
+      <div class="login-header">
+        <h2>{{ 'login.title' | translate }}</h2>
+        <p>{{ 'login.subtitle' | translate }}</p>
       </div>
 
-      <!-- Username Field -->
-      <div class="form-group">
-        <label for="username">{{ 'login.username' | translate }}</label>
-        <div class="input-group">
-          <span class="input-group-text">
-            <i class="fa fa-user"></i>
-          </span>
-          <input
-            type="text"
-            id="username"
-            formControlName="username"
-            class="form-control"
-            [class.is-invalid]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched"
-            [placeholder]="'login.username_placeholder' | translate"
-          />
+      <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="login-form">
+        <div *ngIf="error" class="alert alert-danger">
+          <i class="fa fa-exclamation-triangle"></i>
+          {{ error }}
         </div>
-        <div *ngIf="getFieldError('username')" class="invalid-feedback">
-          {{ getFieldError('username') }}
+
+        <div class="form-group">
+          <label for="username">{{ 'login.username' | translate }}</label>
+          <div class="input-group">
+            <span class="input-group-text">
+              <i class="fa fa-user"></i>
+            </span>
+            <input
+              type="text"
+              id="username"
+              formControlName="username"
+              class="form-control"
+              [class.is-invalid]="loginForm.get('username')?.invalid && loginForm.get('username')?.touched"
+              [placeholder]="'login.username_placeholder' | translate"
+            />
+          </div>
+          <div *ngIf="getFieldError('username')" class="invalid-feedback">
+            {{ getFieldError('username') }}
+          </div>
         </div>
+
+        <div class="form-group">
+          <label for="password">{{ 'login.password' | translate }}</label>
+          <div class="input-group">
+            <span class="input-group-text">
+              <i class="fa fa-lock"></i>
+            </span>
+            <input
+              type="password"
+              id="password"
+              formControlName="password"
+              class="form-control"
+              [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
+              [placeholder]="'login.password_placeholder' | translate"
+            />
+          </div>
+          <div *ngIf="getFieldError('password')" class="invalid-feedback">
+            {{ getFieldError('password') }}
+          </div>
+        </div>
+
+        <button
+          type="submit"
+          class="btn btn-primary btn-login"
+          [disabled]="loading || loginForm.invalid"
+        >
+          <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
+          <i *ngIf="!loading" class="fa fa-arrow-right me-2"></i>
+          {{ loading ? ('login.signing_in' | translate) : ('login.sign_in' | translate) }}
+        </button>
+      </form>
+
+      <div class="login-footer">
+        <p>&copy; {{ 'login.title' | translate }}</p>
       </div>
-
-      <!-- Password Field -->
-      <div class="form-group">
-        <label for="password">{{ 'login.password' | translate }}</label>
-        <div class="input-group">
-          <span class="input-group-text">
-            <i class="fa fa-lock"></i>
-          </span>
-          <input
-            type="password"
-            id="password"
-            formControlName="password"
-            class="form-control"
-            [class.is-invalid]="loginForm.get('password')?.invalid && loginForm.get('password')?.touched"
-            [placeholder]="'login.password_placeholder' | translate"
-          />
-        </div>
-        <div *ngIf="getFieldError('password')" class="invalid-feedback">
-          {{ getFieldError('password') }}
-        </div>
-      </div>
-
-      <!-- Submit Button -->
-      <button
-        type="submit"
-        class="btn btn-primary btn-login"
-        [disabled]="loading || loginForm.invalid"
-      >
-        <span *ngIf="loading" class="spinner-border spinner-border-sm me-2"></span>
-        <i *ngIf="!loading" class="fa fa-sign-in me-2"></i>
-        {{ loading ? ('login.signing_in' | translate) : ('login.sign_in' | translate) }}
-      </button>
-    </form>
-
-    <div class="login-footer">
-      <p>&copy; 2024 {{ 'login.title' | translate }}. {{ 'common.all_rights_reserved' | translate }}</p>
     </div>
-  </div>
+  </main>
 </div>

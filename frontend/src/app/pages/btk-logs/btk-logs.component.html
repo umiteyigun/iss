@@ -1,0 +1,118 @@
+<div class="content-wrapper">
+  <div class="content-header">
+    <div class="container-fluid">
+      <div class="row mb-2">
+        <div class="col-sm-6">
+          <h1 class="m-0">{{ 'navigation.btk_logs' | translate }}</h1>
+        </div>
+        <div class="col-sm-6">
+          <ol class="breadcrumb float-sm-right">
+            <li class="breadcrumb-item"><a routerLink="/dashboard">Ana Sayfa</a></li>
+            <li class="breadcrumb-item active">BTK Logları</li>
+          </ol>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <section class="content">
+    <div class="container-fluid">
+      <div class="alert" [class.alert-success]="clockOk" [class.alert-warning]="!clockOk">
+        <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+          <div>
+            <span *ngIf="clockOk">Her saat zorunlu teslim: tenant’taki tüm aboneler raporlanır — oturumu olanlar trafikle, oturumu olmayanlar durum=2 (down). NAT export anındaki kayıttır.</span>
+            <span *ngIf="!clockOk">Saat uyarısı: {{ clockInfo }}</span>
+            <small class="d-block mt-1 text-muted" *ngIf="clockInfo && clockOk">{{ clockInfo }}</small>
+          </div>
+          <a class="btn btn-sm btn-info text-nowrap"
+             href="assets/docs/BTK-Log-Manuel-Dogrulama.pdf"
+             download="BTK-Log-Manuel-Dogrulama.pdf"
+             target="_blank"
+             rel="noopener"
+             title="BTK / denetçi için manuel doğrulama adımları">
+            <i class="fas fa-file-pdf mr-1"></i> Manuel doğrulama (PDF)
+          </a>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header d-flex align-items-center flex-wrap gap-2">
+          <h3 class="card-title mb-0">Arşiv</h3>
+          <div class="ml-auto d-flex flex-wrap gap-2 align-items-center">
+            <select *ngIf="isSuperAdmin" class="form-control form-control-sm" style="width:200px"
+                    [(ngModel)]="tenantFilter" (change)="onFilterChange()">
+              <option value="">Tüm tenantlar</option>
+              <option *ngFor="let t of tenants" [value]="t.id">{{ t.name }}</option>
+            </select>
+            <button class="btn btn-sm btn-primary" (click)="runNow()" [disabled]="running">
+              <i class="fas fa-play" *ngIf="!running"></i>
+              <i class="fas fa-spinner fa-spin" *ngIf="running"></i>
+              Son saati üret
+            </button>
+          </div>
+        </div>
+        <div class="card-body">
+          <div *ngIf="message" class="alert alert-secondary py-2">{{ message }}</div>
+          <div class="table-responsive">
+            <table class="table table-bordered table-striped table-sm">
+              <thead>
+                <tr>
+                  <th>Tenant</th>
+                  <th>Saat aralığı (+03:00)</th>
+                  <th>Dosya</th>
+                  <th>Kayıt</th>
+                  <th>İmza</th>
+                  <th>İşlem</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr *ngIf="loading">
+                  <td colspan="6" class="text-center">Yükleniyor...</td>
+                </tr>
+                <tr *ngIf="!loading && exports.length === 0">
+                  <td colspan="6" class="text-center text-muted">Henüz arşiv yok</td>
+                </tr>
+                <tr *ngFor="let exp of exports">
+                  <td>{{ exp.tenant_name || exp.tenant_id }}</td>
+                  <td>
+                    <small>{{ exp.hour_start_display || formatHour(exp.hour_start) }} – {{ exp.hour_end_display || formatHour(exp.hour_end) }}</small>
+                  </td>
+                  <td><code class="small">{{ exp.filename }}</code></td>
+                  <td>{{ exp.record_count }}</td>
+                  <td>
+                    <span class="badge badge-success">{{ exp.sign_algorithm }}</span>
+                    <small class="d-block text-muted">{{ exp.signed_at_display || formatHour(exp.signed_at) }}</small>
+                    <small class="d-block text-muted" *ngIf="exp.signed_at_timezone">
+                      {{ exp.signed_at_timezone }} · drift {{ exp.clock_drift_ms }}ms
+                    </small>
+                  </td>
+                  <td class="text-nowrap">
+                    <button class="btn btn-xs btn-outline-primary mr-1" (click)="download(exp)" [disabled]="!exp.has_zip">
+                      <i class="fas fa-download"></i> ZIP
+                    </button>
+                    <button class="btn btn-xs btn-outline-secondary" (click)="verify(exp)">
+                      <i class="fas fa-check"></i>
+                    </button>
+                    <span *ngIf="verifyResult[exp.id]" class="ml-1"
+                          [class.text-success]="verifyResult[exp.id].valid"
+                          [class.text-danger]="!verifyResult[exp.id].valid">
+                      {{ verifyResult[exp.id].valid ? 'OK' : 'Hatalı' }}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="d-flex justify-content-between align-items-center mt-3" *ngIf="pages > 1">
+            <small class="text-muted">Toplam {{ total }} kayıt</small>
+            <div>
+              <button class="btn btn-sm btn-outline-secondary mr-1" (click)="prevPage()" [disabled]="page <= 1">Önceki</button>
+              <span class="mx-2">{{ page }} / {{ pages }}</span>
+              <button class="btn btn-sm btn-outline-secondary" (click)="nextPage()" [disabled]="page >= pages">Sonraki</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>

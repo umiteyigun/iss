@@ -23,9 +23,10 @@ build/
 .DS_Store
 Thumbs.db
 
-# Docker volumes
-mysql_data/
-redis_data/
+# Persistent data (bind mounts — do not commit)
+data/mysql/
+data/redis/
+data/btk-logs/
 
 # Sensitive files
 ADMIN_CREDENTIALS.txt
@@ -54,4 +55,5 @@ coverage/
 tmp/
 temp/
 *.tmp
+.btk-backup-tmp/
 

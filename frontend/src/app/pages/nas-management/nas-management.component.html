@@ -1,296 +1,207 @@
-<div class="content-wrapper">
-  <div class="content-header">
-    <div class="container-fluid">
-      <div class="row mb-2">
-        <div class="col-sm-6">
-          <h1 class="m-0">{{ 'nas_management.title' | translate }}</h1>
-        </div>
-        <div class="col-sm-6">
-          <ol class="breadcrumb float-sm-right">
-            <li class="breadcrumb-item"><a href="#">{{ 'common.home' | translate }}</a></li>
-            <li class="breadcrumb-item active">{{ 'nas_management.title' | translate }}</li>
-          </ol>
-        </div>
-      </div>
+<div class="nas-page">
+  <section class="nas-hero">
+    <div>
+      <p class="hero-kicker">infrastructure matrix</p>
+      <h1>{{ 'nas_management.title' | translate }}</h1>
+      <p class="hero-sub">MikroTik ve NAS cihazlarını tek panelden yönet, test et, detaylandır.</p>
     </div>
+    <button type="button" class="btn btn-primary btn-sm" (click)="createNasDevice()">
+      <i class="fas fa-plus me-1"></i>{{ 'nas_management.new_nas_device' | translate }}
+    </button>
+  </section>
+
+  <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
+    <i class="icon fas fa-ban me-2"></i>
+    {{ error }}
+    <button type="button" class="btn-close" (click)="error = null" aria-label="Close"></button>
   </div>
 
-  <section class="content">
-    <div class="container-fluid">
-      <!-- Error Alert -->
-      <div *ngIf="error" class="alert alert-danger alert-dismissible fade show" role="alert">
-        <i class="icon fas fa-ban"></i>
-        {{ error }}
-        <button type="button" class="close" (click)="error = null" aria-label="Close">
-          <span aria-hidden="true">&times;</span>
-        </button>
-      </div>
-
-      <!-- Filters and Actions -->
-      <div class="card">
-        <div class="card-header">
-          <h3 class="card-title">{{ 'nas_management.nas_devices' | translate }}</h3>
-          <div class="card-tools">
-            <button type="button" class="btn btn-primary btn-sm" (click)="createNasDevice()">
-              <i class="fas fa-plus"></i> {{ 'nas_management.new_nas_device' | translate }}
-            </button>
-          </div>
-        </div>
-        
-        <div class="card-body">
-          <!-- Search and Filters -->
-          <div class="row mb-3">
-            <div class="col-md-3">
-              <div class="input-group">
-                <input 
-                  type="text" 
-                  class="form-control" 
-                  [placeholder]="'nas_management.search_nas_devices' | translate"
-                  [(ngModel)]="searchTerm"
-                  (input)="onSearchChange()"
-                >
-                <div class="input-group-append">
-                  <span class="input-group-text">
-                    <i class="fas fa-search"></i>
-                  </span>
-                </div>
-              </div>
-            </div>
-            
-            <div class="col-md-2">
-              <select 
-                class="form-control" 
-                [(ngModel)]="tenantFilter"
-                (change)="onTenantFilterChange()"
-              >
-                <option value="">{{ 'common.all_tenants' | translate }}</option>
-                <option *ngFor="let tenant of tenants" [value]="tenant.id">
-                  {{ tenant.name }}
-                </option>
-              </select>
-            </div>
-            
-            <div class="col-md-2">
-              <select 
-                class="form-control" 
-                [(ngModel)]="statusFilter"
-                (change)="onStatusFilterChange()"
-              >
-                <option value="">{{ 'nas_management.all_statuses' | translate }}</option>
-                <option *ngFor="let status of statusOptions" [value]="status.value">
-                  {{ status.label }}
-                </option>
-              </select>
-            </div>
-            
-            <div class="col-md-2">
-              <select 
-                class="form-control" 
-                [(ngModel)]="itemsPerPage"
-                (change)="onItemsPerPageChange()"
-              >
-                <option value="10">10 {{ 'nas_management.per_page' | translate }}</option>
-                <option value="25">25 {{ 'nas_management.per_page' | translate }}</option>
-                <option value="50">50 {{ 'nas_management.per_page' | translate }}</option>
-                <option value="100">100 {{ 'nas_management.per_page' | translate }}</option>
-              </select>
-            </div>
-            
-            <div class="col-md-3 text-right">
-              <span class="text-muted">
-                {{ 'nas_management.showing' | translate }} {{ (currentPage - 1) * itemsPerPage + 1 }} {{ 'nas_management.to' | translate }} 
-                {{ Math.min(currentPage * itemsPerPage, totalItems) }} {{ 'nas_management.of' | translate }} 
-                {{ totalItems }} {{ 'nas_management.entries' | translate }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Loading Spinner -->
-          <div *ngIf="loading" class="text-center py-4">
-            <div class="spinner-border text-primary" role="status">
-              <span class="sr-only">Loading...</span>
-            </div>
-            <p class="mt-2">{{ 'nas_management.loading_nas_devices' | translate }}</p>
-          </div>
-
-          <!-- NAS Devices Table -->
-          <div *ngIf="!loading" class="table-responsive">
-            <table class="table table-striped table-hover">
-              <thead class="thead-dark">
-                <tr>
-                  <th *ngFor="let column of columns" 
-                      [class.sortable]="column.sortable"
-                      (click)="column.sortable ? onSort(column.key) : null"
-                      [style.cursor]="column.sortable ? 'pointer' : 'default'">
-                    {{ column.label }}
-                    <i *ngIf="column.sortable" 
-                       class="fas ml-1" 
-                       [ngClass]="getSortIcon(column.key)"></i>
-                  </th>
-                  <th width="150">{{ 'nas_management.actions' | translate }}</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr *ngFor="let nasDevice of nasDevices; trackBy: trackByNasDeviceId">
-                  <td>
-                    <strong 
-                      class="clickable-nas-name" 
-                      (click)="showMikrotikInfo(nasDevice)"
-                      *ngIf="nasDevice.nasname && nasDevice.nasname !== ''"
-                      [title]="'nas_management.click_to_view_mikrotik_info' | translate"
-                    >
-                      {{ nasDevice.nasname }}
-                    </strong>
-                    <strong *ngIf="!nasDevice.nasname || nasDevice.nasname === ''" class="text-muted">N/A</strong>
-                    <br>
-                    <small class="text-muted" *ngIf="nasDevice.description">{{ nasDevice.description }}</small>
-                  </td>
-                  <td>
-                    <span class="badge badge-secondary">{{ nasDevice.shortname || 'N/A' }}</span>
-                  </td>
-                  <td>
-                    <span class="badge badge-info">{{ nasDevice.type || 'other' }}</span>
-                  </td>
-                  <td>
-                    <code 
-                      class="clickable-ip" 
-                      (click)="showMikrotikInfo(nasDevice)"
-                      *ngIf="nasDevice.nasname && nasDevice.nasname !== ''"
-                      [title]="'nas_management.click_to_view_mikrotik_info' | translate"
-                    >
-                      {{ nasDevice.nasname }}
-                    </code>
-                    <span *ngIf="!nasDevice.nasname || nasDevice.nasname === ''" class="text-muted">N/A</span>
-                  </td>
-                  <td>
-                    <span class="badge badge-warning">{{ nasDevice.ports || 0 }}</span>
-                  </td>
-                  <td>
-                    <span *ngIf="nasDevice.tenant">{{ nasDevice.tenant.name }}</span>
-                    <span *ngIf="!nasDevice.tenant">{{ getTenantName(nasDevice.tenant_id) }}</span>
-                  </td>
-                  <td>
-                    <div class="btn-group btn-group-sm" role="group">
-                      <button 
-                        type="button" 
-                        class="btn btn-info btn-sm" 
-                        (click)="viewNasDevice(nasDevice)"
-                        title="View Details">
-                        <i class="fas fa-eye"></i>
-                      </button>
-                      <button 
-                        type="button" 
-                        class="btn btn-warning btn-sm" 
-                        (click)="editNasDevice(nasDevice)"
-                        [title]="'nas_management.edit' | translate">
-                        <i class="fas fa-edit"></i>
-                      </button>
-                      <button 
-                        type="button" 
-                        class="btn btn-primary btn-sm" 
-                        (click)="manageNasDevice(nasDevice)"
-                        [title]="'nas_management.manage_mikrotik' | translate">
-                        <i class="fas fa-cogs"></i>
-                      </button>
-                      <button 
-                        type="button" 
-                        class="btn btn-success btn-sm" 
-                        (click)="testNasDevice(nasDevice)"
-                        [title]="'nas_management.test_connection' | translate">
-                        <i class="fas fa-wifi"></i>
-                      </button>
-                      <button 
-                        type="button" 
-                        class="btn btn-danger btn-sm" 
-                        (click)="deleteNasDevice(nasDevice)"
-                        [title]="'nas_management.delete' | translate">
-                        <i class="fas fa-trash"></i>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-                
-                <!-- No data row -->
-                <tr *ngIf="nasDevices.length === 0">
-                  <td colspan="7" class="text-center py-4">
-                    <div class="text-muted">
-                      <i class="fas fa-server fa-2x mb-2"></i>
-                      <p>{{ 'nas_management.no_nas_devices_found' | translate }}</p>
-                      <button type="button" class="btn btn-primary" (click)="createNasDevice()">
-                        <i class="fas fa-plus"></i> {{ 'nas_management.create_first_nas_device' | translate }}
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Pagination -->
-          <div *ngIf="!loading && nasDevices.length > 0" class="row mt-3">
-            <div class="col-sm-12 col-md-5">
-              <div class="dataTables_info">
-                {{ 'nas_management.showing' | translate }} {{ (currentPage - 1) * itemsPerPage + 1 }} {{ 'nas_management.to' | translate }} 
-                {{ Math.min(currentPage * itemsPerPage, totalItems) }} {{ 'nas_management.of' | translate }} 
-                {{ totalItems }} {{ 'nas_management.entries' | translate }}
-              </div>
-            </div>
-            <div class="col-sm-12 col-md-7">
-              <nav aria-label="NAS devices pagination">
-                <ul class="pagination justify-content-end">
-                  <!-- Previous button -->
-                  <li class="page-item" [class.disabled]="!hasPrevPage">
-                    <a class="page-link" 
-                       (click)="onPageChange(currentPage - 1)"
-                       [style.cursor]="hasPrevPage ? 'pointer' : 'not-allowed'">
-                      {{ 'nas_management.previous' | translate }}
-                    </a>
-                  </li>
-                  
-                  <!-- Page numbers -->
-                  <li *ngFor="let page of getPaginationPages()" 
-                      class="page-item" 
-                      [class.active]="page === currentPage">
-                    <a class="page-link" (click)="onPageChange(page)">{{ page }}</a>
-                  </li>
-                  
-                  <!-- Next button -->
-                  <li class="page-item" [class.disabled]="!hasNextPage">
-                    <a class="page-link" 
-                       (click)="onPageChange(currentPage + 1)"
-                       [style.cursor]="hasNextPage ? 'pointer' : 'not-allowed'">
-                      {{ 'nas_management.next' | translate }}
-                    </a>
-                  </li>
-                </ul>
-              </nav>
-        </div>
-      </div>
+  <section class="nas-filters">
+    <div class="filter-box search-box">
+      <i class="fas fa-search"></i>
+      <input
+        type="text"
+        class="form-control"
+        [placeholder]="'nas_management.search_nas_devices' | translate"
+        [(ngModel)]="searchTerm"
+        (input)="onSearchChange()"
+      />
     </div>
-  </div>
+
+    <div class="filter-box" *ngIf="authService.isSuperAdmin()">
+      <select class="form-select" [(ngModel)]="tenantFilter" (change)="onTenantFilterChange()">
+        <option value="">{{ 'common.all_tenants' | translate }}</option>
+        <option *ngFor="let tenant of tenants" [value]="tenant.id">
+          {{ tenant.name }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-box">
+      <select class="form-select" [(ngModel)]="statusFilter" (change)="onStatusFilterChange()">
+        <option value="">{{ 'nas_management.all_statuses' | translate }}</option>
+        <option *ngFor="let status of statusOptions" [value]="status.value">
+          {{ status.label }}
+        </option>
+      </select>
+    </div>
+
+    <div class="filter-box">
+      <select class="form-select" [(ngModel)]="itemsPerPage" (change)="onItemsPerPageChange()">
+        <option value="10">10 {{ 'nas_management.per_page' | translate }}</option>
+        <option value="25">25 {{ 'nas_management.per_page' | translate }}</option>
+        <option value="50">50 {{ 'nas_management.per_page' | translate }}</option>
+        <option value="100">100 {{ 'nas_management.per_page' | translate }}</option>
+      </select>
+    </div>
+
+    <div class="result-count">
+      {{ 'nas_management.showing' | translate }} {{ totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1 }}
+      {{ 'nas_management.to' | translate }}
+      {{ Math.min(currentPage * itemsPerPage, totalItems) }}
+      {{ 'nas_management.of' | translate }}
+      {{ totalItems }}
+      {{ 'nas_management.entries' | translate }}
+    </div>
+  </section>
+
+  <section class="table-shell">
+    <div *ngIf="loading" class="table-loading">
+      <div class="spinner-border text-primary" role="status">
+        <span class="visually-hidden">Loading...</span>
+      </div>
+      <p class="mt-2">{{ 'nas_management.loading_nas_devices' | translate }}</p>
+    </div>
+
+    <div *ngIf="!loading" class="table-responsive">
+      <table class="table nas-table align-middle">
+        <thead>
+          <tr>
+            <th
+              *ngFor="let column of columns"
+              [class.sortable]="column.sortable"
+              (click)="column.sortable ? onSort(column.key) : null"
+            >
+              {{ column.label }}
+              <i *ngIf="column.sortable" class="fas ms-1" [ngClass]="getSortIcon(column.key)"></i>
+            </th>
+            <th class="actions-col">{{ 'nas_management.actions' | translate }}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr *ngFor="let nasDevice of nasDevices; trackBy: trackByNasDeviceId">
+            <td>
+              <strong
+                class="clickable-nas-name"
+                (click)="showMikrotikInfo(nasDevice)"
+                *ngIf="nasDevice.nasname && nasDevice.nasname !== ''"
+                [title]="'nas_management.click_to_view_mikrotik_info' | translate"
+              >
+                {{ nasDevice.nasname }}
+              </strong>
+              <strong *ngIf="!nasDevice.nasname || nasDevice.nasname === ''" class="text-muted">N/A</strong>
+              <br />
+              <small class="text-muted" *ngIf="nasDevice.description">{{ nasDevice.description }}</small>
+            </td>
+
+            <td><span class="badge bg-secondary-soft">{{ nasDevice.shortname || 'N/A' }}</span></td>
+            <td><span class="badge bg-info-soft">{{ nasDevice.type || 'other' }}</span></td>
+
+            <td>
+              <code
+                class="clickable-ip"
+                (click)="showMikrotikInfo(nasDevice)"
+                *ngIf="nasDevice.nasname && nasDevice.nasname !== ''"
+                [title]="'nas_management.click_to_view_mikrotik_info' | translate"
+              >
+                {{ nasDevice.nasname }}
+              </code>
+              <span *ngIf="!nasDevice.nasname || nasDevice.nasname === ''" class="text-muted">N/A</span>
+            </td>
+
+            <td><span class="badge bg-warning-soft">{{ nasDevice.ports || 0 }}</span></td>
+
+            <td>
+              <span *ngIf="nasDevice.tenant">{{ nasDevice.tenant.name }}</span>
+              <span *ngIf="!nasDevice.tenant">{{ getTenantName(nasDevice.tenant_id) }}</span>
+            </td>
+
+            <td>
+              <div class="action-cluster">
+                <button type="button" class="btn action-btn view" (click)="viewNasDevice(nasDevice)" title="View">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button type="button" class="btn action-btn edit" (click)="editNasDevice(nasDevice)" [title]="'nas_management.edit' | translate">
+                  <i class="fas fa-edit"></i>
+                </button>
+                <button type="button" class="btn action-btn manage" (click)="manageNasDevice(nasDevice)" [title]="'nas_management.manage_mikrotik' | translate">
+                  <i class="fas fa-cogs"></i>
+                </button>
+                <button type="button" class="btn action-btn test" (click)="testNasDevice(nasDevice)" [title]="'nas_management.test_connection' | translate">
+                  <i class="fas fa-wifi"></i>
+                </button>
+                <button type="button" class="btn action-btn delete" (click)="deleteNasDevice(nasDevice)" [title]="'nas_management.delete' | translate">
+                  <i class="fas fa-trash"></i>
+                </button>
+              </div>
+            </td>
+          </tr>
+
+          <tr *ngIf="nasDevices.length === 0">
+            <td colspan="7">
+              <div class="empty-state">
+                <i class="fas fa-server fa-2x mb-2"></i>
+                <p>{{ 'nas_management.no_nas_devices_found' | translate }}</p>
+                <button type="button" class="btn btn-primary" (click)="createNasDevice()">
+                  <i class="fas fa-plus me-1"></i>{{ 'nas_management.create_first_nas_device' | translate }}
+                </button>
+              </div>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section *ngIf="!loading && nasDevices.length > 0" class="pager-shell">
+    <div class="pager-info">
+      {{ 'nas_management.showing' | translate }} {{ (currentPage - 1) * itemsPerPage + 1 }}
+      {{ 'nas_management.to' | translate }} {{ Math.min(currentPage * itemsPerPage, totalItems) }}
+      {{ 'nas_management.of' | translate }} {{ totalItems }} {{ 'nas_management.entries' | translate }}
+    </div>
+
+    <nav aria-label="NAS devices pagination">
+      <ul class="pagination mb-0">
+        <li class="page-item" [class.disabled]="!hasPrevPage">
+          <a class="page-link" (click)="onPageChange(currentPage - 1)">{{ 'nas_management.previous' | translate }}</a>
+        </li>
+        <li *ngFor="let page of getPaginationPages()" class="page-item" [class.active]="page === currentPage">
+          <a class="page-link" (click)="onPageChange(page)">{{ page }}</a>
+        </li>
+        <li class="page-item" [class.disabled]="!hasNextPage">
+          <a class="page-link" (click)="onPageChange(currentPage + 1)">{{ 'nas_management.next' | translate }}</a>
+        </li>
+      </ul>
+    </nav>
+  </section>
 </div>
 
-<!-- NAS Modal -->
 <app-nas-modal
   [isOpen]="isModalOpen"
   [data]="modalData"
   [tenants]="tenants"
   (close)="onModalClose()"
-  (save)="onModalSave($event)">
-</app-nas-modal>
+  (save)="onModalSave($event)"
+></app-nas-modal>
 
-<!-- Mikrotik Info Modal -->
 <app-mikrotik-info-modal
   [isOpen]="isMikrotikModalOpen"
   [nasDevice]="selectedNasDevice"
-  (close)="onMikrotikModalClose()">
-</app-mikrotik-info-modal>
+  (close)="onMikrotikModalClose()"
+></app-mikrotik-info-modal>
 
-<!-- Mikrotik Management Modal -->
 <app-mikrotik-management-modal
   [isOpen]="isMikrotikManagementModalOpen"
   [nasDevice]="selectedNasDevice"
-  (close)="onMikrotikManagementModalClose()">
-</app-mikrotik-management-modal>
-  </section>
-</div>
+  (close)="onMikrotikManagementModalClose()"
+></app-mikrotik-management-modal>

@@ -17,6 +17,7 @@ const tenantRoutes = require('./routes/tenants');
 const dashboardRoutes = require('./routes/dashboard');
 const firewallRoutes = require('./routes/firewall');
 const activityRoutes = require('./routes/activity');
+const btkLogsRoutes = require('./routes/btk-logs');
 const memberRoutes = require('./routes/members');
 const packageRoutes = require('./routes/packages');
 const TrafficWebSocket = require('./websocket/trafficSocket');
@@ -50,12 +51,12 @@ const limiter = rateLimit({
     return req.path.includes('/health') || req.path.includes('/dashboard/');
   }
 });
-app.use('/api/', limiter);
-
-// Health check endpoint
+// Health check (before /api rate limiter)
 app.get('/api/health', (req, res) => {
   res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+
+app.use('/api/', limiter);
 
 // Body parsing middleware
 app.use(express.json({ limit: '10mb' }));
@@ -89,6 +90,7 @@ app.use('/api/members', authenticateToken, memberRoutes);
 app.use('/api/packages', authenticateToken, packageRoutes);
 app.use('/api/ip', authenticateToken, require('./routes/ip'));
 app.use('/api/activity', authenticateToken, activityRoutes);
+app.use('/api/btk-logs', authenticateToken, btkLogsRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

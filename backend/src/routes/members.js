@@ -3,6 +3,25 @@ const router = express.Router();
 const { authenticateToken } = require('../middleware/auth');
 const MemberService = require('../services/MemberService');
 
+function isSuperAdminUser(req) {
+  const tenantId = req.user?.tenantId;
+  return tenantId === null || tenantId === undefined || tenantId === 0;
+}
+
+/** Super admin: tenant from body/query; tenant admin: own tenant. */
+function resolveEffectiveTenantId(req, bodyTenantId) {
+  if (isSuperAdminUser(req)) {
+    const raw = bodyTenantId ?? req.query.tenantId;
+    if (raw === null || raw === undefined || raw === '' || raw === 'null') {
+      return null;
+    }
+    const parsed = parseInt(raw, 10);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  const own = req.user?.tenantId;
+  return own === null || own === undefined ? null : parseInt(own, 10);
+}
+
 // Apply authentication middleware to all routes
 router.use(authenticateToken);
 
@@ -55,10 +74,15 @@ router.get('/roles', async (req, res) => {
 // Get available roles for tenant
 router.get('/roles/available', async (req, res) => {
   try {
-    const tenantId = req.user?.tenantId;
+    const tenantId = resolveEffectiveTenantId(req, req.query.tenantId);
 
     if (!tenantId) {
-      return res.status(400).json({ success: false, error: 'Tenant ID is required' });
+      return res.status(400).json({
+        success: false,
+        error: isSuperAdminUser(req)
+          ? 'Tenant selection is required'
+          : 'Tenant ID is required'
+      });
     }
 
     const result = await MemberService.getAvailableRoles(tenantId);
@@ -113,10 +137,15 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req, res) => {
   try {
     const memberData = req.body;
-    const tenantId = req.user?.tenantId;
+    const tenantId = resolveEffectiveTenantId(req, memberData.tenant_id);
 
     if (!tenantId) {
-      return res.status(400).json({ success: false, error: 'Tenant ID is required' });
+      return res.status(400).json({
+        success: false,
+        error: isSuperAdminUser(req)
+          ? 'Tenant selection is required'
+          : 'Tenant ID is required'
+      });
     }
 
     // Validate required fields
@@ -166,9 +195,9 @@ router.put('/:id', async (req, res) => {
 router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const tenantId = req.user?.tenantId;
+    const tenantId = isSuperAdminUser(req) ? null : resolveEffectiveTenantId(req, null);
 
-    if (!tenantId) {
+    if (!isSuperAdminUser(req) && !tenantId) {
       return res.status(400).json({ success: false, error: 'Tenant ID is required' });
     }
 
@@ -190,11 +219,13 @@ router.delete('/:id', async (req, res) => {
 router.post('/roles', async (req, res) => {
   try {
     const roleData = req.body;
-    const tenantId = req.user?.tenantId;
+    const tenantId = resolveEffectiveTenantId(req, roleData.tenant_id);
 
-    if (!tenantId) {
+    if (!tenantId && !isSuperAdminUser(req)) {
       return res.status(400).json({ success: false, error: 'Tenant ID is required' });
     }
+
+    const roleTenantId = tenantId || null;
 
     // Validate required fields
     if (!roleData.name || !roleData.display_name) {
@@ -204,7 +235,7 @@ router.post('/roles', async (req, res) => {
       });
     }
 
-    const result = await MemberService.saveRole(roleData, tenantId);
+    const result = await MemberService.saveRole(roleData, roleTenantId);
 
     if (result.success) {
       res.status(201).json(result);
@@ -222,13 +253,13 @@ router.put('/roles/:id', async (req, res) => {
   try {
     const { id } = req.params;
     const roleData = { ...req.body, id: parseInt(id) };
-    const tenantId = req.user?.tenantId;
+    const tenantId = resolveEffectiveTenantId(req, roleData.tenant_id);
 
-    if (!tenantId) {
+    if (!tenantId && !isSuperAdminUser(req)) {
       return res.status(400).json({ success: false, error: 'Tenant ID is required' });
     }
 
-    const result = await MemberService.saveRole(roleData, tenantId);
+    const result = await MemberService.saveRole(roleData, tenantId || null);
 
     if (result.success) {
       res.json(result);
@@ -245,9 +276,9 @@ router.put('/roles/:id', async (req, res) => {
 router.delete('/roles/:id', async (req, res) => {
   try {
     const { id } = req.params;
-    const tenantId = req.user?.tenantId;
+    const tenantId = isSuperAdminUser(req) ? null : resolveEffectiveTenantId(req, null);
 
-    if (!tenantId) {
+    if (!isSuperAdminUser(req) && !tenantId) {
       return res.status(400).json({ success: false, error: 'Tenant ID is required' });
     }
 

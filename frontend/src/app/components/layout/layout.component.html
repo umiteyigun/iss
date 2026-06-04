@@ -58,6 +58,11 @@
   <!-- Sidebar -->
   <aside class="sidebar" [class.collapsed]="sidebarCollapsed">
     <div class="sidebar-content">
+      <div class="sidebar-brand" *ngIf="!sidebarCollapsed">
+        <span class="sidebar-brand-iss">ISS</span>
+        <span class="sidebar-brand-sub">RADIUS</span>
+      </div>
+
       <!-- Sidebar User Panel -->
       <div class="sidebar-user-panel">
         <div class="sidebar-user-avatar"></div>
@@ -87,7 +92,6 @@
             <a routerLink="/nas" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.nas_management' | translate">
               <i class="fa fa-server"></i>
               <span>{{ 'navigation.nas_management' | translate }}</span>
-              <span class="nav-badge">8</span>
             </a>
           </li>
           
@@ -95,7 +99,6 @@
             <a routerLink="/ip" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.ip_management' | translate">
               <i class="fa fa-network-wired"></i>
               <span>{{ 'navigation.ip_management' | translate }}</span>
-              <span class="nav-badge">45</span>
             </a>
           </li>
           
@@ -105,24 +108,23 @@
               <span>{{ 'navigation.recent_activity' | translate }}</span>
             </a>
           </li>
-          
-          <!-- User Management -->
-          <li class="nav-section" *ngIf="authService.canViewTenants() || authService.canViewUsers() || authService.canViewMembers()">
-            <span class="nav-section-title">{{ 'navigation.user_management' | translate }}</span>
+
+          <li class="nav-item" *ngIf="authService.canViewBtkLogs()">
+            <a routerLink="/btk-logs" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.btk_logs' | translate">
+              <i class="fa fa-archive"></i>
+              <span>{{ 'navigation.btk_logs' | translate }}</span>
+            </a>
           </li>
           
-          <li class="nav-item" *ngIf="authService.canViewTenants()">
-            <a routerLink="/tenants" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.tenant_management' | translate">
-              <i class="fa fa-building"></i>
-              <span>{{ 'navigation.tenant_management' | translate }}</span>
-            </a>
+          <!-- User Management -->
+          <li class="nav-section" *ngIf="authService.canViewUsers() || authService.canViewMembers()">
+            <span class="nav-section-title">{{ 'navigation.user_management' | translate }}</span>
           </li>
           
           <li class="nav-item" *ngIf="authService.canViewUsers()">
             <a routerLink="/users" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'common.users' | translate">
               <i class="fa fa-users"></i>
               <span>{{ 'common.users' | translate }}</span>
-              <span class="nav-badge">156</span>
             </a>
           </li>
           
@@ -130,7 +132,6 @@
             <a routerLink="/members" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.member_management' | translate">
               <i class="fa fa-user-secret"></i>
               <span>{{ 'navigation.member_management' | translate }}</span>
-              <span class="nav-badge">24</span>
             </a>
           </li>
           
@@ -138,7 +139,6 @@
             <a routerLink="/packages" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.package_management' | translate">
               <i class="fa fa-box"></i>
               <span>{{ 'common.packages' | translate }}</span>
-              <span class="nav-badge">12</span>
             </a>
           </li>
           
@@ -170,7 +170,6 @@
             <a routerLink="/tenants" routerLinkActive="active" class="nav-link" [attr.data-tooltip]="'navigation.tenant_management' | translate">
               <i class="fa fa-building"></i>
               <span>{{ 'navigation.tenant_management' | translate }}</span>
-              <span class="nav-badge">5</span>
             </a>
           </li>
           

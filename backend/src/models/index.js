@@ -18,6 +18,9 @@ const Role = require('./Role');
 const Permission = require('./Permission');
 const RolePermission = require('./RolePermission');
 const MemberRole = require('./MemberRole');
+const TenantBtkSettings = require('./TenantBtkSettings');
+const BtkLogExport = require('./BtkLogExport');
+const NatMappingHistory = require('./NatMappingHistory');
 
 // Define associations
 // Tenant associations
@@ -26,6 +29,8 @@ Tenant.hasMany(Router, { foreignKey: 'tenant_id', as: 'routers' });
 Tenant.hasMany(NasDevice, { foreignKey: 'tenant_id', as: 'nasDevices' });
 Tenant.hasMany(RadiusUser, { foreignKey: 'tenant_id', as: 'radiusUsers' });
 Tenant.hasMany(Package, { foreignKey: 'tenant_id', as: 'packages' });
+Tenant.hasOne(TenantBtkSettings, { foreignKey: 'tenant_id', as: 'btkSettings' });
+Tenant.hasMany(BtkLogExport, { foreignKey: 'tenant_id', as: 'btkLogExports' });
 
 // User associations
 User.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
@@ -74,6 +79,9 @@ Permission.belongsToMany(Role, { through: RolePermission, foreignKey: 'permissio
 Member.belongsToMany(Role, { through: MemberRole, foreignKey: 'member_id', as: 'roles' });
 Role.belongsToMany(Member, { through: MemberRole, foreignKey: 'role_id', as: 'members' });
 
+TenantBtkSettings.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+BtkLogExport.belongsTo(Tenant, { foreignKey: 'tenant_id', as: 'tenant' });
+
 // Export models
 module.exports = {
   sequelize,
@@ -93,5 +101,8 @@ module.exports = {
   Role,
   Permission,
   RolePermission,
-  MemberRole
+  MemberRole,
+  TenantBtkSettings,
+  BtkLogExport,
+  NatMappingHistory
 };

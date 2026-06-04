@@ -34,7 +34,7 @@ const Member = sequelize.define('Member', {
     allowNull: true
   },
   password: {
-    type: DataTypes.STRING(20),
+    type: DataTypes.STRING(255),
     allowNull: true
   },
   email: {

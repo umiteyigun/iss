@@ -62,6 +62,9 @@ export class MemberManagementComponent implements OnInit {
   // Role assignment
   availableRoles: Role[] = [];
   selectedRoleIds: number[] = [];
+  memberModalRoles: Role[] = [];
+  memberModalRolesLoading = false;
+  saveMemberError = '';
   
   // Role management
   allRoles: Role[] = [];
@@ -109,7 +112,8 @@ export class MemberManagementComponent implements OnInit {
       email: ['', [Validators.required, Validators.email]],
       phone: [''],
       tc: [''],
-      tenant_id: ['', this.isSuperAdmin ? Validators.required : null]
+      tenant_id: ['', this.isSuperAdmin ? Validators.required : null],
+      roleIds: [[] as number[]]
     });
   }
 
@@ -148,10 +152,10 @@ export class MemberManagementComponent implements OnInit {
 
   loadRoles(): void {
     this.rolesLoading = true;
-    this.memberService.getAvailableRoles().subscribe({
+    this.memberService.getRoles(this.selectedTenantId || undefined).subscribe({
       next: (response) => {
         if (response.success) {
-          this.roles = response.data;
+          this.roles = response.roles || [];
         }
         this.rolesLoading = false;
       },
@@ -215,28 +219,25 @@ export class MemberManagementComponent implements OnInit {
   openAddMember(): void {
     this.isEditing = false;
     this.currentMember = null;
+    this.saveMemberError = '';
     
     // Recreate form to ensure proper validation
     this.memberForm = this.createMemberForm();
     
     // Set default tenant
-    if (this.isSuperAdmin) {
-      this.memberForm.patchValue({
-        tenant_id: this.selectedTenantId
-      });
-    } else {
-      // Regular admin can only create members in their tenant
-      this.memberForm.patchValue({
-        tenant_id: this.selectedTenantId
-      });
-    }
+    this.memberForm.patchValue({
+      tenant_id: this.selectedTenantId ?? '',
+      roleIds: []
+    });
     
+    this.loadMemberModalRoles(this.selectedTenantId || undefined);
     this.showMemberModal = true;
   }
 
   openEditMember(member: Member): void {
     this.isEditing = true;
     this.currentMember = member;
+    this.saveMemberError = '';
     
     // Recreate form to ensure proper validation
     this.memberForm = this.createMemberForm();
@@ -248,45 +249,116 @@ export class MemberManagementComponent implements OnInit {
       email: member.email,
       phone: member.phone,
       tc: member.tc,
-      tenant_id: member.tenant_id
+      tenant_id: member.tenant_id,
+      roleIds: member.roles ? member.roles.map((r) => r.id) : []
     });
     
     // Password is optional for edit
     this.memberForm.get('password')?.clearValidators();
     this.memberForm.get('password')?.updateValueAndValidity();
     
+    this.loadMemberModalRoles(member.tenant_id || undefined);
     this.showMemberModal = true;
   }
 
-  saveMember(): void {
-    if (this.memberForm.valid) {
-      const formData = this.memberForm.value;
-      
-      if (this.isEditing && this.currentMember) {
-        this.memberService.updateMember(this.currentMember.id, formData).subscribe({
-          next: (response) => {
-            if (response.success) {
-              this.closeMemberModal();
-              this.loadMembers();
-            }
-          },
-          error: (error) => {
-            console.error('Error updating member:', error);
-          }
-        });
-      } else {
-        this.memberService.createMember(formData).subscribe({
-          next: (response) => {
-            if (response.success) {
-              this.closeMemberModal();
-              this.loadMembers();
-            }
-          },
-          error: (error) => {
-            console.error('Error creating member:', error);
-          }
-        });
+  loadMemberModalRoles(tenantId?: number): void {
+    this.memberModalRolesLoading = true;
+    this.memberService.getRoles(tenantId).subscribe({
+      next: (response) => {
+        this.memberModalRoles = response.success ? (response.roles || []) : [];
+        this.memberModalRolesLoading = false;
+      },
+      error: () => {
+        this.memberModalRoles = [];
+        this.memberModalRolesLoading = false;
       }
+    });
+  }
+
+  onMemberTenantChange(tenantId: string | number): void {
+    const parsed =
+      tenantId === '' || tenantId === null || tenantId === undefined
+        ? undefined
+        : Number(tenantId);
+    this.memberForm.patchValue({ roleIds: [] });
+    this.loadMemberModalRoles(parsed);
+  }
+
+  isMemberRoleSelected(roleId: number): boolean {
+    const ids: number[] = this.memberForm.get('roleIds')?.value || [];
+    return ids.includes(roleId);
+  }
+
+  toggleMemberRole(roleId: number): void {
+    const control = this.memberForm.get('roleIds');
+    const ids: number[] = [...(control?.value || [])];
+    const index = ids.indexOf(roleId);
+    if (index > -1) {
+      ids.splice(index, 1);
+    } else {
+      ids.push(roleId);
+    }
+    control?.setValue(ids);
+  }
+
+  private buildMemberPayload(): Record<string, unknown> {
+    const raw = { ...this.memberForm.value };
+    if (raw.tenant_id !== '' && raw.tenant_id != null) {
+      raw.tenant_id = Number(raw.tenant_id);
+    } else {
+      delete raw.tenant_id;
+    }
+    if (!raw.password) {
+      delete raw.password;
+    }
+    return raw;
+  }
+
+  saveMember(): void {
+    this.saveMemberError = '';
+    if (!this.memberForm.valid) {
+      this.memberForm.markAllAsTouched();
+      this.saveMemberError = 'Please fill in all required fields.';
+      if (this.isSuperAdmin && !this.memberForm.get('tenant_id')?.value) {
+        this.saveMemberError = 'Please select a tenant for this member.';
+      }
+      return;
+    }
+
+    const formData = this.buildMemberPayload();
+
+    if (this.isEditing && this.currentMember) {
+      this.memberService.updateMember(this.currentMember.id, formData).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.closeMemberModal();
+            this.loadMembers();
+          } else {
+            this.saveMemberError = (response as { error?: string }).error || 'Failed to update member.';
+          }
+        },
+        error: (error) => {
+          console.error('Error updating member:', error);
+          this.saveMemberError =
+            error?.error?.error || error?.error?.message || 'Failed to update member.';
+        }
+      });
+    } else {
+      this.memberService.createMember(formData).subscribe({
+        next: (response) => {
+          if (response.success) {
+            this.closeMemberModal();
+            this.loadMembers();
+          } else {
+            this.saveMemberError = (response as { error?: string }).error || 'Failed to create member.';
+          }
+        },
+        error: (error) => {
+          console.error('Error creating member:', error);
+          this.saveMemberError =
+            error?.error?.error || error?.error?.message || 'Failed to create member.';
+        }
+      });
     }
   }
 

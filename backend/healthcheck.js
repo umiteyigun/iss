@@ -1,11 +1,11 @@
 const http = require('http');
 
 const options = {
-  hostname: 'localhost',
+  hostname: '127.0.0.1',
   port: 3000,
   path: '/api/health',
   method: 'GET',
-  timeout: 2000
+  timeout: 5000
 };
 
 const req = http.request(options, (res) => {

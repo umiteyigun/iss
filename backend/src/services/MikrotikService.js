@@ -11,6 +11,10 @@ class MikrotikService {
     this.delay = 2000; // 2 second delay between attempts
   }
 
+  async sleep(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   // Helper method to get NAS device by ID
   async getNasDeviceById(deviceId) {
     try {
@@ -23,22 +27,43 @@ class MikrotikService {
   }
 
   async connectToDevice(ip, username, password, useSSL = false) {
-    const api = new RouterOSAPI({
-      host: ip,
-      user: username,
-      password: password,
-      port: useSSL ? 8729 : 8728,
-      timeout: this.timeout,
-      keepalive: true
-    });
+    let lastError = null;
 
-    try {
-      await api.connect();
-      return api;
-    } catch (error) {
-      console.error(`Failed to connect to ${ip}:`, error.message);
-      throw error;
+    for (let attempt = 1; attempt <= this.attempts; attempt += 1) {
+      const api = new RouterOSAPI({
+        host: ip,
+        user: username,
+        password: password,
+        port: useSSL ? 8729 : 8728,
+        timeout: this.timeout,
+        keepalive: true
+      });
+
+      try {
+        await Promise.race([
+          api.connect(),
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error(`Connection timeout after ${this.timeout}ms`)), this.timeout)
+          )
+        ]);
+
+        return api;
+      } catch (error) {
+        lastError = error;
+        try {
+          await api.close();
+        } catch (closeError) {
+          // Best effort cleanup of half-open API sessions.
+        }
+
+        if (attempt < this.attempts) {
+          await this.sleep(this.delay);
+        }
+      }
     }
+
+    console.error(`Failed to connect to ${ip} after ${this.attempts} attempts:`, lastError?.message);
+    throw lastError || new Error('Unknown Mikrotik connection error');
   }
 
   async getSystemResource(ip, username, password) {
@@ -649,6 +674,7 @@ class MikrotikService {
       const rules = await api.write('/ip/firewall/nat/print');
       
       const natData = rules.map(rule => ({
+        id: rule['.id'] || null,
         chain: rule.chain || 'N/A',
         action: rule.action || 'N/A',
         'src-address': rule['src-address'] || 'N/A',
@@ -719,6 +745,25 @@ class MikrotikService {
       return { success: true, id: newId };
     } catch (error) {
       console.error('addNatRuleTop error:', error.message);
+      return { success: false, message: error.message };
+    } finally {
+      if (api) {
+        try { await api.close(); } catch (_) {}
+      }
+    }
+  }
+
+  async setNatRuleComment(ip, username, password, ruleId, comment) {
+    let api = null;
+    try {
+      api = await this.connectToDevice(ip, username, password);
+      await api.write('/ip/firewall/nat/set', {
+        '.id': ruleId,
+        comment: comment || ''
+      });
+      return { success: true };
+    } catch (error) {
+      console.error('setNatRuleComment error:', error.message);
       return { success: false, message: error.message };
     } finally {
       if (api) {

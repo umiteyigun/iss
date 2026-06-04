@@ -32,11 +32,11 @@ async function getAllUsersWithPrimaryIp() {
   const map = new Map();
   for (const r of rows) {
     if (!map.has(r.username)) {
-      // Try to fetch tenant from Radcheck Cleartext-password if present
+      // Try to fetch tenant from radcheck password row if present
       let tenantId = null;
       try {
         const rc = await Radcheck.findOne({
-          where: { username: r.username, attribute: 'Cleartext-password' },
+          where: { username: r.username, attribute: 'Cleartext-Password' },
           attributes: ['tenant_id']
         });
         tenantId = rc?.tenant_id ?? null;
