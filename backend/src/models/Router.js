@@ -56,7 +56,7 @@ const Router = sequelize.define('Router', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Tenants',
+      model: 'tenants',
       key: 'id'
     }
   }

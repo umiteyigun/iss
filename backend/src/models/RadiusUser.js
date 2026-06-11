@@ -57,7 +57,7 @@ const RadiusUser = sequelize.define('RadiusUser', {
     type: DataTypes.INTEGER,
     allowNull: false,
     references: {
-      model: 'Tenants',
+      model: 'tenants',
       key: 'id'
     }
   }
